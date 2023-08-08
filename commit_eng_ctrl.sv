@@ -48,6 +48,15 @@ module commit_eng_ctrl (
     state_e state_reg;
     state_e state_next;
 
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state_reg <= READY;
+        end
+        else begin
+            state_reg <= state_next;
+        end
+    end
+
     assign commit_eng_rdy = state_reg == READY;
 
     always_comb begin
@@ -58,12 +67,15 @@ module commit_eng_ctrl (
         commit_log_mem_rd_resp_rdy = 1'b0;
 
         ctrl_datap_store_msg = 1'b0;
-        ctrl_datap_store_log_entry = 1'b1;
+        ctrl_datap_store_state = 1'b0;
+        ctrl_datap_store_log_entry = 1'b0;
+        ctrl_datap_calc_next_entry = 1'b0;
 
         state_next = state_reg;
         case (state_reg)
             READY: begin
                 ctrl_datap_store_msg = 1'b1;
+                ctrl_datap_store_state = 1'b1;
                 if (manage_commit_msg_val & manage_commit_req_val) begin
                     commit_manage_msg_rdy = 1'b1;
                     commit_manage_req_rdy = 1'b1;

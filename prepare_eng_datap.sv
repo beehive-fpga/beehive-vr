@@ -1,12 +1,13 @@
 // FIXME: Needs batching implemented
 
-module prepare_datap #(
+module prepare_datap 
+import beehive_udp_msg::*;
+import beehive_vr_pkg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_vr_pkg::*;
-(
+)(
      input clk
     ,input rst
     
@@ -25,12 +26,12 @@ module prepare_datap #(
     // log entry bus out
     ,output logic   [LOG_DEPTH_W-1:0]       prep_log_mem_wr_addr
     
-    ,input  udp_info                        prep_to_udp_meta_info
+    ,output udp_info                        prep_to_udp_meta_info
 
-    ,input  logic   [NOC_DATA_W-1:0]        prep_to_udp_data
-    ,input  logic   [NOC_PADBYTES_W-1:0]    prep_to_udp_data_padbytes
+    ,output logic   [NOC_DATA_W-1:0]        prep_to_udp_data
+    ,output logic   [NOC_PADBYTES_W-1:0]    prep_to_udp_data_padbytes
 
-    ,output log_hdr                         datap_inserter_log_hdr
+    ,output log_entry_hdr                   datap_inserter_log_hdr
     
     ,input  logic                           ctrl_datap_store_info 
     ,input  logic                           log_ctrl_datap_incr_wr_addr
@@ -65,10 +66,12 @@ module prepare_datap #(
         wr_addr_reg <= wr_addr_next;
     end
 
+    assign prep_log_mem_wr_addr = wr_addr_reg;
+
     assign wr_addr_next = ctrl_datap_store_info
                         ? vr_state_prep_rd_resp_data.log_tail
                         : log_ctrl_datap_incr_wr_addr
-                            ? wr_addr_next + 1'b1
+                            ? wr_addr_reg + 1'b1
                             : wr_addr_reg;
                     
     assign udp_info_next = ctrl_datap_store_info
@@ -93,8 +96,10 @@ module prepare_datap #(
                             : (entry_len_calc >> LOG_W_BYTES_W) + 1'b1;
     assign datap_ctrl_log_has_space = space_left >= log_entry_line_cnt;
 
-    assign prep_to_udp_data = {prepare_ok_hdr_cast, {(PREP_OK_PADDING){1'b0}}};
-    assign prep_to_udp_data_padbytes = NOC_DATA_BYTES - PREPARE_OK_HDR_BYTES;
+    logic   [PREP_OK_PADDING-1:0] padding;
+    assign padding = {(PREP_OK_PADDING){1'b0}};
+    assign prep_to_udp_data = {prepare_ok_hdr_cast, padding};
+    assign prep_to_udp_data_padbytes = PREP_OK_PADDING >> 3;
 
     always_comb begin
         prepare_ok_hdr_cast = '0;
@@ -116,7 +121,16 @@ module prepare_datap #(
     always_comb begin
         prep_vr_state_wr_data = vr_state_prep_rd_resp_data;
         prep_vr_state_wr_data.last_op = vr_state_prep_rd_resp_data.last_op + 1'b1;
-        prep_vr_state_wr_data.log_tail = vr_state_prep_rd_resp_data.log_tail + entry_lines;
+        prep_vr_state_wr_data.log_tail = vr_state_prep_rd_resp_data.log_tail + log_entry_line_cnt;
+    end
+
+    always_comb begin
+        datap_inserter_log_hdr = '0;
+        datap_inserter_log_hdr.view = prepare_hdr_reg.view;
+        datap_inserter_log_hdr.op_num = prepare_hdr_reg.opnum;
+        datap_inserter_log_hdr.log_entry_state = LOG_STATE_PREPARED;
+        datap_inserter_log_hdr.entry_len = entry_len_calc;
+        datap_inserter_log_hdr.req_count = prepare_hdr_reg.req_count;
     end
 
 endmodule

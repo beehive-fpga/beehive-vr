@@ -40,29 +40,27 @@ module prepare_eng_ctrl (
         UND = 'X
     } state_e;
 
-    assign prep_engine_rdy = state_reg == READY;
-
     state_e state_reg;
     state_e state_next;
-
-
 
     always_ff @(posedge clk) begin
         if (rst) begin
             state_reg <= READY;
-            ingest_state_reg <= WAITING;
         end
         else begin
             state_reg <= state_next;
-            ingest_state_reg <= ingest_state_next;
         end
     end
+
+    assign prep_engine_rdy = state_reg == READY;
 
     always_comb begin
         prep_manage_msg_rdy = 1'b0;
         prep_to_udp_meta_val = 1'b0;
         prep_to_udp_data_val = 1'b0;
         prep_to_udp_data_last = 1'b0;
+
+        prep_vr_state_wr_req = 1'b0;
 
         ctrl_datap_store_info = 1'b0;
         start_req_ingest = 1'b0;

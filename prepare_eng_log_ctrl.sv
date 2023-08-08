@@ -2,8 +2,8 @@ module prepare_log_ctrl (
      input clk
     ,input rst
 
-    ,input  start_req_ingest
-    ,output log_write_done
+    ,input  logic   start_req_ingest
+    ,output logic   log_write_done
     
     // data bus in
     ,input  logic                           manage_prep_req_val
@@ -25,6 +25,7 @@ module prepare_log_ctrl (
     ,input  logic                           log_mem_prep_wr_rdy
 
     ,output logic                           log_ctrl_datap_incr_wr_addr
+    ,input  logic                           datap_ctrl_log_has_space
 );
     
     typedef enum logic[1:0] {
@@ -78,7 +79,7 @@ module prepare_log_ctrl (
                 prep_manage_req_rdy = 'X;
                 log_ctrl_realign_wr_val = 'X;
 
-                ingest_state_next = UNDEF;
+                ingest_state_next = UND;
             end
         endcase
     end
@@ -88,6 +89,7 @@ module prepare_log_ctrl (
         
         prep_log_mem_wr_val = 1'b0;
         log_ctrl_insert_rd_rdy = 1'b0;
+        log_ctrl_datap_incr_wr_addr = 1'b0;
 
         log_state_next = log_state_reg;
         case (log_state_reg)

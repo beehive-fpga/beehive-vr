@@ -1,8 +1,9 @@
-module commit_eng_datap #(
+module commit_eng_datap 
+import beehive_vr_pkg::*;
+import beehive_udp_msg::*;
+#(
     parameter NOC_DATA_W = -1
-)
-    import beehive_vr_pkg::*;
-(
+)(
      input clk
     ,input rst
     
@@ -85,7 +86,7 @@ module commit_eng_datap #(
     assign log_entry_line_cnt = log_entry_hdr_cast.entry_len[NOC_BYTES_W-1:0] == 0
                                 ? log_entry_hdr_cast.entry_len >> NOC_BYTES_W
                                 // if there's extra space, just align to the next line
-                                : log_entry_hdr_cast.entry_len >> NOC_BYTES_W) + 1'b1;
+                                : (log_entry_hdr_cast.entry_len >> NOC_BYTES_W) + 1'b1;
 
     assign commit_log_mem_wr_addr = curr_log_addr_reg;
 
@@ -99,7 +100,7 @@ module commit_eng_datap #(
                                 
 
     assign hdr_next = ctrl_datap_store_msg
-                    ? manage_commit_req[NOC_DATA_W -: COMMIT_MSG_HDR_W]
+                    ? manage_commit_req[NOC_DATA_W-1 -: COMMIT_MSG_HDR_W]
                     : hdr_reg;
 
     assign vr_state_next = ctrl_datap_store_state

@@ -1,10 +1,11 @@
-module prepare_eng #(
+module prepare_eng 
+import beehive_vr_pkg::*;
+import beehive_udp_msg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_vr_pkg::*;
-(
+)(
      input clk
     ,input rst
 
@@ -46,7 +47,7 @@ module prepare_eng #(
     ,output logic                           prep_engine_rdy
 );
 
-    log_hdr datap_inserter_log_hdr;
+    log_entry_hdr                   datap_inserter_log_hdr;
     logic                           ctrl_datap_store_info;
     logic                           datap_ctrl_prep_ok;
     logic                           datap_ctrl_log_has_space;
@@ -96,8 +97,8 @@ module prepare_eng #(
         ,.DATA_W        (NOC_DATA_W         )
         ,.BUF_STAGES    (4)
     ) prepare_realigner (
-        .clk    (clk    )
-        .rst    (rst    )
+         .clk    (clk    )
+        ,.rst    (rst    )
 
         ,.src_realign_data_val      (log_ctrl_realign_wr_val        )
         ,.src_realign_data          (manage_prep_req                )
@@ -167,6 +168,7 @@ module prepare_eng #(
         ,.log_mem_prep_wr_rdy           (log_mem_prep_wr_rdy            )
 
         ,.log_ctrl_datap_incr_wr_addr   (log_ctrl_datap_incr_wr_addr    )
+        ,.datap_ctrl_log_has_space      (datap_ctrl_log_has_space       )
     );
 
     prepare_eng_ctrl ctrl (
@@ -174,7 +176,6 @@ module prepare_eng #(
         ,.rst   (rst    )
 
         ,.manage_prep_msg_val       (manage_prep_msg_val        )
-        ,.manage_prep_pkt_info      (manage_prep_pkt_info       )
         ,.prep_manage_msg_rdy       (prep_manage_msg_rdy        )
 
         ,.manage_prep_req_val       (manage_prep_req_val        )

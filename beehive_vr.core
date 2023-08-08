@@ -1,0 +1,33 @@
+CAPI=2:
+name: uwcse:beehive:beehive_vr:0.1
+description: Beehive VR witness
+
+filesets:
+    rtl:
+        files:
+            - include/beehive_vr_pkg.sv
+            - beehive_vr_wrap.sv
+            - commit_eng.sv
+            - commit_eng_ctrl.sv
+            - commit_eng_datap.sv
+            - manage_eng.sv
+            - out_merger.sv
+            - prepare_eng.sv
+            - prepare_eng_ctrl.sv
+            - prepare_eng_datap.sv
+            - prepare_eng_log_ctrl.sv
+            - req_splitter.sv
+            - setup_eng.sv
+        depend:
+            - uwcse:beehive:common_inc
+            - uwcse:beehive:msgs
+            - uwcse:beehive:data_converters
+            - uwcse:beehive:app_udp_adapters
+            - uwcse:beehive:misc
+            - uwcse:buckfast:bsg_misc
+            - uwcse:beehive:topology
+        file_type: systemVerilogSource
+
+targets:
+    default:
+        filesets: [rtl]

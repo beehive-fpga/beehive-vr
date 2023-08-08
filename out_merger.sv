@@ -1,10 +1,10 @@
-module out_merger #(
+module out_merger 
+import beehive_udp_msg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_udp_msg::*;
-(
+)(
      input clk
     ,input rst
     
@@ -79,11 +79,11 @@ module out_merger #(
     logic                   meta_dst_val;
 
     assign src_meta_vals = {setup_to_udp_meta_val, prep_to_udp_meta_val};
-    assign {to_udp_setup_meta_rdy, to_udp_prep_meta_rdy} = src_meta_rdys
+    assign {to_udp_setup_meta_rdy, to_udp_prep_meta_rdy} = src_meta_rdys;
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            state_reg <= READY; 
+            state_reg <= META_OUT; 
             data_state_reg <= WAITING;
             grants_reg <= '0;
         end
@@ -93,6 +93,10 @@ module out_merger #(
             grants_reg <= grants_next;
         end
     end
+
+    assign grants_next = store_grants
+                        ? grants
+                        : grants_reg;
 
     bsg_arb_round_robin #(
         .width_p    (NUM_SRCS   )
@@ -167,6 +171,9 @@ module out_merger #(
                             data_state_next = DATA_PASS;
                         end
                     end
+                    else begin
+                        data_state_next = DATA_PASS;
+                    end
                 end
             end
             DATA_PASS: begin
@@ -184,6 +191,15 @@ module out_merger #(
             end
         endcase
     end
+    
+    bsg_mux_one_hot #(
+         .width_p   (UDP_INFO_W )
+        ,.els_p     (NUM_SRCS   )
+    ) info_mux (
+         .data_i        ({setup_to_udp_meta_info, prep_to_udp_meta_info})
+        ,.sel_one_hot_i (grants_next            )
+        ,.data_o        (merger_dst_meta_info   )
+    );
 
     
     bsg_mux_one_hot #(
@@ -210,7 +226,7 @@ module out_merger #(
     ) data_val_mux (
          .data_i        ({setup_to_udp_data_val, prep_to_udp_data_val})
         ,.sel_one_hot_i (grants_next            )
-        ,.data_o        (src_merger_meta_val    )
+        ,.data_o        (src_merger_data_val    )
     );
     
     demux_one_hot #(
@@ -234,7 +250,7 @@ module out_merger #(
     bsg_mux_one_hot #(
          .width_p   (NOC_PADBYTES_W )
         ,.els_p     (NUM_SRCS       )
-    ) data_last_mux (
+    ) data_padbytes_mux (
          .data_i        ({setup_to_udp_data_padbytes, prep_to_udp_data_padbytes})
         ,.sel_one_hot_i (grants_next                )
         ,.data_o        (merger_dst_data_padbytes   )

@@ -1,16 +1,17 @@
-module beehive_vr_wrap #(
+module beehive_vr_wrap 
+import beehive_udp_msg::*;
+import beehive_vr_pkg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_udp_msg::*;
-(
+)(
      input clk
     ,input rst
 
     ,input  logic                           fr_udp_beehive_vr_meta_val
     ,input  udp_info                        fr_udp_beehive_vr_meta_info
-    ,input                                  beehive_vr_fr_udp_meta_rdy
+    ,output logic                           beehive_vr_fr_udp_meta_rdy
 
     ,input  logic                           fr_udp_beehive_vr_data_val
     ,input  logic   [NOC_DATA_W-1:0]        fr_udp_beehive_vr_data
@@ -47,9 +48,22 @@ module beehive_vr_wrap #(
     logic   [NOC_PADBYTES_W-1:0]    manage_commit_req_padbytes;
     logic                           commit_manage_req_rdy;
     
+    logic                           commit_log_mem_rd_req_val;
+    logic   [LOG_DEPTH_W-1:0]       commit_log_mem_rd_req_addr;
+    logic                           log_mem_commit_rd_req_rdy;
+
+    logic                           log_mem_commit_rd_resp_val;
+    logic   [NOC_DATA_W-1:0]        log_mem_commit_rd_resp_data;
+    logic                           commit_log_mem_rd_resp_rdy;
+    
+    logic                           commit_log_mem_wr_val;
+    logic   [NOC_DATA_W-1:0]        commit_log_mem_wr_data;
+    logic   [LOG_DEPTH_W-1:0]       commit_log_mem_wr_addr;
+    logic                           log_mem_commit_wr_rdy;
+    
     logic                           splitter_setup_meta_val;
     udp_info                        splitter_setup_meta_info;
-                                    setup_splitter_meta_rdy;
+    logic                           setup_splitter_meta_rdy;
 
     logic                           splitter_setup_data_val;
     logic   [NOC_DATA_W-1:0]        splitter_setup_data;
@@ -59,7 +73,7 @@ module beehive_vr_wrap #(
     
     logic                           splitter_manage_meta_val;
     udp_info                        splitter_manage_meta_info;
-                                    manage_splitter_meta_rdy;
+    logic                           manage_splitter_meta_rdy;
 
     logic                           splitter_manage_data_val;
     logic   [NOC_DATA_W-1:0]        splitter_manage_data;
@@ -72,10 +86,10 @@ module beehive_vr_wrap #(
     logic   [LOG_DEPTH_W-1:0]       prep_log_mem_wr_addr;
     logic                           log_mem_prep_wr_rdy;
 
-    logic                           log_mem_wr_val;
-    logic   [NOC_DATA_W-1:0]        log_mem_wr_data;
-    logic   [LOG_DEPTH_W-1:0]       log_mem_wr_addr;
-    logic                           log_mem_wr_rdy;
+    logic                           log_mem_wr_req_val;
+    logic   [NOC_DATA_W-1:0]        log_mem_wr_req_data;
+    logic   [LOG_DEPTH_W-1:0]       log_mem_wr_req_addr;
+    logic                           log_mem_wr_req_rdy;
 
     vr_state                        vr_state_reg;
     vr_state                        vr_state_next;
@@ -107,6 +121,13 @@ module beehive_vr_wrap #(
     logic   [NOC_PADBYTES_W-1:0]    prep_to_udp_data_padbytes;
     logic                           prep_to_udp_data_last;
     logic                           to_udp_prep_data_rdy;
+    
+    logic                           commit_vr_state_wr_req;
+    vr_state                        commit_vr_state_wr_data;
+    logic                           vr_state_commit_wr_rdy;
+    
+    logic                           prep_vr_state_wr_req;
+    vr_state                        prep_vr_state_wr_data;
 
     assign all_eng_rdy = setup_eng_rdy & commit_eng_rdy & prep_engine_rdy;
 
@@ -125,6 +146,7 @@ module beehive_vr_wrap #(
             vr_state_next = prep_vr_state_wr_data;
         end
         else if (commit_vr_state_wr_req) begin
+            vr_state_commit_wr_rdy = 1'b1;
             vr_state_next = commit_vr_state_wr_data;
         end
     end
@@ -178,7 +200,7 @@ module beehive_vr_wrap #(
                                                                     
         ,.setup_to_udp_data_val         (setup_to_udp_data_val      )
         ,.setup_to_udp_data             (setup_to_udp_data          )
-        ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbyte  )
+        ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbytes )
         ,.setup_to_udp_data_last        (setup_to_udp_data_last     )
         ,.to_udp_setup_data_rdy         (to_udp_setup_data_rdy      )
                                                                     
@@ -209,28 +231,30 @@ module beehive_vr_wrap #(
          .clk   (clk    )
         ,.rst   (rst    )
     
-        ,.src_setup_msg_val         (splitter_setup_meta_val        )
-        ,.src_setup_pkt_info        (splitter_setup_meta_info       )
-        ,.setup_src_msg_rdy         (setup_splitter_meta_rdy        )
+        ,.src_setup_msg_val             (splitter_setup_meta_val        )
+        ,.src_setup_pkt_info            (splitter_setup_meta_info       )
+        ,.setup_src_msg_rdy             (setup_splitter_meta_rdy        )
     
-        ,.src_setup_req_val         (splitter_setup_data_val        )
-        ,.src_setup_req             (splitter_setup_data            )
-        ,.src_setup_req_last        (splitter_setup_data_last       )
-        ,.src_setup_req_padbytes    (splitter_setup_data_padbytes   )
-        ,.setup_src_req_rdy         (setup_splitter_data_rdy        )
+        ,.src_setup_req_val             (splitter_setup_data_val        )
+        ,.src_setup_req                 (splitter_setup_data            )
+        ,.src_setup_req_last            (splitter_setup_data_last       )
+        ,.src_setup_req_padbytes        (splitter_setup_data_padbytes   )
+        ,.setup_src_req_rdy             (setup_splitter_data_rdy        )
     
-        ,.setup_vr_state_wr_val     (setup_vr_state_wr_val          )
-        ,.setup_vr_state_wr_data    (setup_vr_state_wr_data         )
+        ,.setup_vr_state_wr_val         (setup_vr_state_wr_val          )
+        ,.setup_vr_state_wr_data        (setup_vr_state_wr_data         )
     
-        ,.setup_to_udp_meta_val     ()
-        ,.setup_to_udp_meta_info    ()
-        ,.to_udp_setup_meta_rdy     ()
-    
-        ,.setup_to_udp_data_val     ()
-        ,.setup_to_udp_data         ()
-        ,.to_udp_setup_data_rdy     ()
+        ,.setup_to_udp_meta_val         (setup_to_udp_meta_val          )
+        ,.setup_to_udp_meta_info        (setup_to_udp_meta_info         )
+        ,.to_udp_setup_meta_rdy         (to_udp_setup_meta_rdy          )
+                                                                        
+        ,.setup_to_udp_data_val         (setup_to_udp_data_val          )
+        ,.setup_to_udp_data             (setup_to_udp_data              )
+        ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbytes     )
+        ,.setup_to_udp_data_last        (setup_to_udp_data_last         )
+        ,.to_udp_setup_data_rdy         (to_udp_setup_data_rdy          )
 
-        ,.setup_eng_rdy             (setup_eng_rdy                  )
+        ,.setup_eng_rdy                 (setup_eng_rdy                  )
     );
 
 
@@ -282,7 +306,7 @@ module beehive_vr_wrap #(
         ,.manage_prep_msg_val           (manage_prep_msg_val        )
         ,.manage_prep_pkt_info          (manage_prep_pkt_info       )
         ,.prep_manage_msg_rdy           (prep_manage_msg_rdy        )
-                                                                    
+                                                                        
         ,.manage_prep_req_val           (manage_prep_req_val        )
         ,.manage_prep_req               (manage_prep_req            )
         ,.manage_prep_req_last          (manage_prep_req_last       )
@@ -293,19 +317,21 @@ module beehive_vr_wrap #(
     
         ,.prep_vr_state_wr_req          (prep_vr_state_wr_req       )
         ,.prep_vr_state_wr_data         (prep_vr_state_wr_data      )
-                                                                    
+                                                                        
         ,.prep_log_mem_wr_val           (prep_log_mem_wr_val        )
         ,.prep_log_mem_wr_data          (prep_log_mem_wr_data       )
         ,.prep_log_mem_wr_addr          (prep_log_mem_wr_addr       )
         ,.log_mem_prep_wr_rdy           (log_mem_prep_wr_rdy        )
         
-        ,.prep_to_udp_meta_val          (beehive_vr_to_udp_meta_val )
-        ,.prep_to_udp_meta_info         (beehive_vr_to_udp_meta_info)
-        ,.to_udp_prep_meta_rdy          (to_udp_beehive_vr_meta_rdy )
-    
-        ,.prep_to_udp_data_val          (beehive_vr_to_udp_data_val )
-        ,.prep_to_udp_data              (beehive_vr_to_udp_data     )
-        ,.to_udp_prep_data_rdy          (to_udp_beehive_vr_data_rdy )
+        ,.prep_to_udp_meta_val          (prep_to_udp_meta_val       )
+        ,.prep_to_udp_meta_info         (prep_to_udp_meta_info      )
+        ,.to_udp_prep_meta_rdy          (to_udp_prep_meta_rdy       )
+                                                                    
+        ,.prep_to_udp_data_val          (prep_to_udp_data_val       )
+        ,.prep_to_udp_data              (prep_to_udp_data           )
+        ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes  )
+        ,.prep_to_udp_data_last         (prep_to_udp_data_last      )
+        ,.to_udp_prep_data_rdy          (to_udp_prep_data_rdy       )
         
         ,.prep_engine_rdy               (prep_engine_rdy            )
     );
@@ -332,6 +358,8 @@ module beehive_vr_wrap #(
         ,.commit_vr_state_wr_data       (commit_vr_state_wr_data        )
         ,.vr_state_commit_wr_rdy        (vr_state_commit_wr_rdy         )
                                                                         
+        ,.commit_log_mem_rd_req_val     (commit_log_mem_rd_req_val      )
+        ,.commit_log_mem_rd_req_addr    (commit_log_mem_rd_req_addr     )
         ,.log_mem_commit_rd_req_rdy     (log_mem_commit_rd_req_rdy      )
                                                                         
         ,.log_mem_commit_rd_resp_val    (log_mem_commit_rd_resp_val     )
@@ -340,6 +368,7 @@ module beehive_vr_wrap #(
                                                                         
         ,.commit_log_mem_wr_val         (commit_log_mem_wr_val          )
         ,.commit_log_mem_wr_data        (commit_log_mem_wr_data         )
+        ,.commit_log_mem_wr_addr        (commit_log_mem_wr_addr         )
         ,.log_mem_commit_wr_rdy         (log_mem_commit_wr_rdy          )
 
         ,.commit_eng_rdy                (commit_eng_rdy                 )
@@ -348,16 +377,16 @@ module beehive_vr_wrap #(
     always_comb begin
         log_mem_prep_wr_rdy = 1'b0;
         if (prep_log_mem_wr_val) begin
-            wr_req_val = prep_log_mem_wr_val;
-            wr_req_data = prep_log_mem_wr_data;
-            wr_req_addr = prep_log_mem_wr_addr;
-            log_mem_prep_wr_rdy = wr_req_rdy;
+            log_mem_wr_req_val = prep_log_mem_wr_val;
+            log_mem_wr_req_data = prep_log_mem_wr_data;
+            log_mem_wr_req_addr = prep_log_mem_wr_addr;
+            log_mem_prep_wr_rdy = log_mem_wr_req_rdy;
         end
         else begin
-            wr_req_val = commit_log_mem_wr_val;
-            wr_req_data = commit_log_mem_wr_data;
-            wr_req_addr = commit_log_mem_wr_addr;
-            log_mem_commit_wr_rdy = wr_req_rdy;
+            log_mem_wr_req_val = commit_log_mem_wr_val;
+            log_mem_wr_req_data = commit_log_mem_wr_data;
+            log_mem_wr_req_addr = commit_log_mem_wr_addr;
+            log_mem_commit_wr_rdy = log_mem_wr_req_rdy;
         end
     end
 
@@ -368,10 +397,10 @@ module beehive_vr_wrap #(
          .clk   (clk    )
         ,.rst   (rst    )
     
-        ,.wr_req_val    (wr_req_val     )
-        ,.wr_req_addr   (wr_req_addr    )
-        ,.wr_req_data   (wr_req_data    )
-        ,.wr_req_rdy    (wr_req_rdy     )
+        ,.wr_req_val    (log_mem_wr_req_val         )
+        ,.wr_req_addr   (log_mem_wr_req_addr        )
+        ,.wr_req_data   (log_mem_wr_req_data        )
+        ,.wr_req_rdy    (log_mem_wr_req_rdy         )
     
         ,.rd_req_val    (commit_log_mem_rd_req_val  )
         ,.rd_req_addr   (commit_log_mem_rd_req_addr )

@@ -1,22 +1,23 @@
-module setup_eng #(
+module setup_eng 
+import beehive_vr_pkg::*;
+import beehive_udp_msg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_vr_pkg::*;
-(
+)(
      input clk
     ,input rst
 
-    ,output logic                           src_setup_msg_val
-    ,output udp_info                        src_setup_pkt_info
-    ,input  logic                           setup_src_msg_rdy
+    ,input  logic                           src_setup_msg_val
+    ,input  udp_info                        src_setup_pkt_info
+    ,output logic                           setup_src_msg_rdy
 
-    ,output logic                           src_setup_req_val
-    ,output logic   [NOC_DATA_W-1:0]        src_setup_req
-    ,output logic                           src_setup_req_last
-    ,output logic   [NOC_PADBYTES_W-1:0]    src_setup_req_padbytes
-    ,input  logic                           setup_src_req_rdy
+    ,input  logic                           src_setup_req_val
+    ,input  logic   [NOC_DATA_W-1:0]        src_setup_req
+    ,input  logic                           src_setup_req_last
+    ,input  logic   [NOC_PADBYTES_W-1:0]    src_setup_req_padbytes
+    ,output logic                           setup_src_req_rdy
 
     ,output logic                           setup_vr_state_wr_val
     ,output vr_state                        setup_vr_state_wr_data
@@ -63,7 +64,10 @@ module setup_eng #(
         end
     end
 
-    assign setup_vr_state_wr_data = src_setup_req[NOC_DATA_W-1 -: VR_STATE_W];
+    assign setup_vr_state_wr_data = src_setup_req[NOC_DATA_W-BEEHIVE_HDR_W-1 -: VR_STATE_W];
+    assign info_next = store_info
+                    ? src_setup_pkt_info
+                    : info_reg;
 
     always_comb begin
         store_info = 1'b0;
@@ -78,6 +82,7 @@ module setup_eng #(
         case (state_reg)
             READY: begin
                 store_info = 1'b1;
+                setup_src_msg_rdy = 1'b1;
                 if (src_setup_msg_val) begin
                     state_next = WR_STATE;
                 end
@@ -127,3 +132,4 @@ module setup_eng #(
 
     assign setup_to_udp_data = {8'd1, {(NOC_DATA_W-8){1'b0}}};
     assign setup_to_udp_data_padbytes = NOC_DATA_BYTES - 1;
+endmodule

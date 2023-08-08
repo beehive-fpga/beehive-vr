@@ -15,14 +15,14 @@ package beehive_vr_pkg;
     localparam LOG_STATE_PREPARED = 1;
 
     typedef enum logic[7:0] {
-        Prepare = 8'd4,
-        PrepareOK = 8'd5,
-        Commit = 8'd6,
-        RequestStateTransfer= 8'd7,
-        StateTransfer = 8'd8,
-        StartViewChange = 8'd9,
-        DoViewChange = 8'd10,
-        StartView = 8'd11,
+        Prepare = 8'd5,
+        PrepareOK = 8'd6,
+        Commit = 8'd7,
+        RequestStateTransfer= 8'd8,
+        StateTransfer = 8'd9,
+        StartViewChange = 8'd10,
+        DoViewChange = 8'd11,
+        StartView = 8'd12,
         SetupBeehive = 8'd128
     } msg_type;
 
@@ -40,7 +40,7 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]     batchstart;
         logic   [COUNT_W-1:0]   req_count;
     } prepare_msg_hdr;
-    localparam PREPARE_MSG_HDR_W = $bits(prepare_hdr_msg);
+    localparam PREPARE_MSG_HDR_W = $bits(prepare_msg_hdr);
     localparam PREPARE_HDR_BYTES = PREPARE_MSG_HDR_W/8;
 
     typedef struct packed {

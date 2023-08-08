@@ -1,8 +1,11 @@
-module commit_eng #(
+module commit_eng 
+import beehive_vr_pkg::*;
+import beehive_udp_msg::*;
+#(
     parameter NOC_DATA_W = -1
-)
-    import beehive_vr_pkg::*;
-(
+    ,parameter NOC_PADBYTES = NOC_DATA_W/8
+    ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
+)(
      input clk
     ,input rst
     
@@ -27,6 +30,7 @@ module commit_eng #(
 
     // log entry rd bus
     ,output logic                           commit_log_mem_rd_req_val
+    ,output logic   [LOG_DEPTH_W-1:0]       commit_log_mem_rd_req_addr
     ,input  logic                           log_mem_commit_rd_req_rdy
 
     ,input  logic                           log_mem_commit_rd_resp_val
@@ -36,6 +40,7 @@ module commit_eng #(
     // log entry bus out
     ,output logic                           commit_log_mem_wr_val
     ,output logic   [NOC_DATA_W-1:0]        commit_log_mem_wr_data
+    ,output logic   [LOG_DEPTH_W-1:0]       commit_log_mem_wr_addr
     ,input  logic                           log_mem_commit_wr_rdy
 
     ,output logic                           commit_eng_rdy
@@ -49,7 +54,7 @@ module commit_eng #(
     logic                           datap_ctrl_commit_ok;
     logic                           datap_ctrl_last_commit;
 
-    commit_eng_ctrl (
+    commit_eng_ctrl ctrl (
          .clk   (clk    )
         ,.rst   (rst    )
 
@@ -59,12 +64,6 @@ module commit_eng #(
         ,.manage_commit_req_val         (manage_commit_req_val          )
         ,.manage_commit_req_last        (manage_commit_req_last         )
         ,.commit_manage_req_rdy         (commit_manage_req_rdy          )
-                                                                        
-        ,.commit_vr_state_rd_req_val    (commit_vr_state_rd_req_val     )
-        ,.vr_state_commit_rd_req_rdy    (vr_state_commit_rd_req_rdy     )
-                                                                        
-        ,.vr_state_commit_rd_resp_val   (vr_state_commit_rd_resp_val    )
-        ,.commit_vr_state_rd_resp_rdy   (commit_vr_state_rd_resp_rdy    )
                                                                         
         ,.commit_vr_state_wr_req        (commit_vr_state_wr_req         )
         ,.vr_state_commit_wr_rdy        (vr_state_commit_wr_rdy         )
@@ -102,6 +101,8 @@ module commit_eng #(
         ,.vr_state_commit_rd_resp_data  (vr_state_commit_rd_resp_data   )
                                                                         
         ,.commit_vr_state_wr_data       (commit_vr_state_wr_data        )
+
+        ,.commit_log_mem_rd_req_addr    (commit_log_mem_rd_req_addr     )
                                                                         
         ,.log_mem_commit_rd_resp_data   (log_mem_commit_rd_resp_data    )
                                                                         

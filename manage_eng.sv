@@ -1,16 +1,17 @@
-module manage_eng #(
+module manage_eng 
+import beehive_udp_msg::*;
+import beehive_vr_pkg::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-import beehive_udp_msg::*;
-(
+)(
      input clk
     ,input rst
     
     ,input  logic                           fr_udp_manage_meta_val
     ,input  udp_info                        fr_udp_manage_meta_info
-    ,input                                  manage_fr_udp_meta_rdy
+    ,output logic                           manage_fr_udp_meta_rdy
 
     ,input  logic                           fr_udp_manage_data_val
     ,input  logic   [NOC_DATA_W-1:0]        fr_udp_manage_data
@@ -65,6 +66,7 @@ import beehive_udp_msg::*;
 
     beehive_hdr msg_hdr_reg;
     beehive_hdr msg_hdr_next;
+    beehive_hdr msg_hdr;
     logic       store_msg_hdr;
 
     udp_info    udp_info_reg;
@@ -132,7 +134,7 @@ import beehive_udp_msg::*;
 
     realign_compile #(
          .REALIGN_W     (BEEHIVE_HDR_W  )
-        ,.DATA_W        (DATA_W         )
+        ,.DATA_W        (NOC_DATA_W     )
         ,.BUF_STAGES    (4) 
     ) beehive_msg_hdr (
          .clk   (clk    )
@@ -189,7 +191,7 @@ import beehive_udp_msg::*;
     bsg_mux #(
          .width_p   (1)
         ,.els_p     (2)
-    ) meta_rdy_mux (
+    ) data_rdy_mux (
          .data_i    ({commit_manage_req_rdy, prep_manage_req_rdy})
         ,.sel_i     (dst_sel)
         ,.data_o    (dst_manage_req_rdy)
@@ -211,7 +213,7 @@ import beehive_udp_msg::*;
                 manage_fr_udp_meta_rdy = 1'b1;
                 if (fr_udp_manage_meta_val) begin
                     meta_out = 1'b1;
-                    state_next = DATA_PASS;
+                    state_next = GRAB_MSG_HDR;
                 end
             end
             GRAB_MSG_HDR: begin
@@ -265,11 +267,11 @@ import beehive_udp_msg::*;
                 manage_dst_msg_val = 1'b1;
 
                 if (dst_manage_msg_rdy) begin
-                    state_next = WAITING;
+                    meta_state_next = WAITING;
                 end
             end
             default: begin
-                manage_dst_msg_val = 'X
+                manage_dst_msg_val = 'X;
 
                 meta_state_next = UNDEF;
             end

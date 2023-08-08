@@ -1,18 +1,18 @@
 `include "packet_defs.vh"
-module req_splitter #(
+module req_splitter 
+import beehive_udp_msg::*;
+import beehive_topology::*;
+#(
      parameter NOC_DATA_W = -1
     ,parameter NOC_PADBYTES = NOC_DATA_W/8
     ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
-)
-    import beehive_udp_msg::*;
-    import beehive_topology::*;
-(
+)(
      input clk
     ,input rst
 
     ,input  logic                           fr_udp_beehive_vr_meta_val
     ,input  udp_info                        fr_udp_beehive_vr_meta_info
-    ,input                                  beehive_vr_fr_udp_meta_rdy
+    ,output logic                           beehive_vr_fr_udp_meta_rdy
 
     ,input  logic                           fr_udp_beehive_vr_data_val
     ,input  logic   [NOC_DATA_W-1:0]        fr_udp_beehive_vr_data
@@ -89,7 +89,7 @@ module req_splitter #(
     ) meta_val_demux (
          .input_sel   (dst_sel  )
         ,.data_input  (splitter_dst_meta_val    )
-        ,.data_outputs({splitter_manage_meta_val, splitter_setup_data_val})
+        ,.data_outputs({splitter_manage_meta_val, splitter_setup_meta_val})
     );
     
     demux #(
@@ -121,7 +121,7 @@ module req_splitter #(
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            state_reg <= READY;
+            state_reg <= META_OUT;
             data_state_reg <= WAITING;
         end
         else begin
@@ -134,6 +134,9 @@ module req_splitter #(
     assign dst_port_next = store_dst_port
                            ? fr_udp_beehive_vr_meta_info.dst_port
                            : dst_port_reg;
+
+    assign splitter_setup_meta_info = fr_udp_beehive_vr_meta_info;
+    assign splitter_manage_meta_info = fr_udp_beehive_vr_meta_info;
 
     always_comb begin
         splitter_dst_meta_val = 1'b0;
@@ -181,16 +184,16 @@ module req_splitter #(
         beehive_vr_fr_udp_data_rdy = 1'b0;
 
         data_state_next = data_state_reg;
-        case (data_state_reg) begin
+        case (data_state_reg)
             WAITING: begin
                 if (start_data_out) begin
                     splitter_dst_data_val = fr_udp_beehive_vr_data_val;
                     beehive_vr_fr_udp_data_rdy = dst_splitter_data_rdy;
                     if (fr_udp_beehive_vr_data_val & dst_splitter_data_rdy & fr_udp_beehive_vr_data_last) begin
-                        state_next = WAITING;
+                        data_state_next = WAITING;
                     end
                     else begin
-                        state_next = DATA_PASS;
+                        data_state_next = DATA_PASS;
                     end
                 end
             end
@@ -198,7 +201,7 @@ module req_splitter #(
                 splitter_dst_data_val = fr_udp_beehive_vr_data_val;
                 beehive_vr_fr_udp_data_rdy = dst_splitter_data_rdy;
                 if (fr_udp_beehive_vr_data_val & dst_splitter_data_rdy & fr_udp_beehive_vr_data_last) begin
-                    state_next = WAITING;
+                    data_state_next = WAITING;
                 end
             end
             default: begin
@@ -207,7 +210,7 @@ module req_splitter #(
 
                 data_state_next = UNDEF;
             end
-        end
+        endcase
     end
 
 endmodule
