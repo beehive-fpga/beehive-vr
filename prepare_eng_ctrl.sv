@@ -19,6 +19,9 @@ module prepare_eng_ctrl (
     ,output logic                           start_req_ingest
     ,input  logic                           log_write_done
     
+    ,output logic                           start_log_clean
+    ,input  logic                           log_clean_done
+    
     // prep ok packet out               
     ,output logic                           prep_to_udp_meta_val
     ,input  logic                           to_udp_prep_meta_rdy
@@ -64,6 +67,7 @@ module prepare_eng_ctrl (
 
         ctrl_datap_store_info = 1'b0;
         start_req_ingest = 1'b0;
+        start_log_clean = 1'b0;
 
         state_next = state_reg;
         case (state_reg)
@@ -72,12 +76,12 @@ module prepare_eng_ctrl (
                 if (manage_prep_msg_val & manage_prep_req_val) begin
                     prep_manage_msg_rdy = 1'b1;
                     start_req_ingest = 1'b1;
+                    start_log_clean = 1'b1;
                     state_next = HANDLE_OP;
                 end
             end
             HANDLE_OP: begin
                 if (datap_ctrl_prep_ok) begin
-                    prep_vr_state_wr_req = 1'b1;
                     state_next = SEND_PREP_OK_META;
                 end
                 else if (~datap_ctrl_log_has_space) begin
@@ -97,7 +101,8 @@ module prepare_eng_ctrl (
                 prep_to_udp_data_val = 1'b1;
                 prep_to_udp_data_last = 1'b1;
                 if (to_udp_prep_data_rdy) begin
-                    if (log_write_done) begin
+                    if (log_write_done & log_clean_done) begin
+                        prep_vr_state_wr_req = 1'b1;
                         state_next = READY;
                     end
                     else begin
@@ -106,7 +111,8 @@ module prepare_eng_ctrl (
                 end
             end
             WAIT_LOG_WRITE: begin
-                if (log_write_done) begin
+                if (log_write_done & log_clean_done) begin
+                    prep_vr_state_wr_req = 1'b1;
                     state_next = READY;
                 end
             end

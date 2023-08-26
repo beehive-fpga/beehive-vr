@@ -12,10 +12,11 @@ filesets:
             - commit_eng_datap.sv
             - manage_eng.sv
             - out_merger.sv
+            - prepare_clean_log_ctrl.sv
             - prepare_eng.sv
             - prepare_eng_ctrl.sv
             - prepare_eng_datap.sv
-            - prepare_eng_log_ctrl.sv
+            - prepare_eng_log_ctrl_new.sv
             - req_splitter.sv
             - setup_eng.sv
         depend:

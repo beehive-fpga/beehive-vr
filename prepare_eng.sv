@@ -29,10 +29,23 @@ import beehive_udp_msg::*;
     ,output vr_state                        prep_vr_state_wr_data
     
     // log entry bus out
-    ,output logic                           prep_log_mem_wr_val
-    ,output logic   [NOC_DATA_W-1:0]        prep_log_mem_wr_data
-    ,output logic   [LOG_DEPTH_W-1:0]       prep_log_mem_wr_addr
-    ,input  logic                           log_mem_prep_wr_rdy
+    ,output logic                           prep_log_hdr_mem_wr_val
+    ,output log_entry_hdr                   prep_log_hdr_mem_wr_data
+    ,output logic   [LOG_HDR_DEPTH_W-1:0]   prep_log_hdr_mem_wr_addr
+    ,input  logic                           log_hdr_mem_prep_wr_rdy
+
+    ,output logic                           prep_log_data_mem_wr_val
+    ,output logic   [NOC_DATA_W-1:0]        prep_log_data_mem_wr_data
+    ,output logic   [LOG_DEPTH_W-1:0]       prep_log_data_mem_wr_addr
+    ,input  logic                           log_data_mem_prep_wr_rdy
+    
+    ,output logic                           prep_log_hdr_mem_rd_req_val
+    ,output logic   [LOG_HDR_DEPTH_W-1:0]   prep_log_hdr_mem_rd_req_addr
+    ,input  logic                           log_hdr_mem_prep_rd_req_rdy
+
+    ,input  logic                           log_hdr_mem_prep_rd_resp_val
+    ,input  log_entry_hdr                   log_hdr_mem_prep_rd_resp_data
+    ,output logic                           prep_log_hdr_mem_rd_resp_rdy
     
     ,output logic                           prep_to_udp_meta_val
     ,output udp_info                        prep_to_udp_meta_info
@@ -47,51 +60,22 @@ import beehive_udp_msg::*;
     ,output logic                           prep_engine_rdy
 );
 
-    log_entry_hdr                   datap_inserter_log_hdr;
     logic                           ctrl_datap_store_info;
     logic                           datap_ctrl_prep_ok;
     logic                           datap_ctrl_log_has_space;
 
     logic                           start_req_ingest;
     logic                           log_write_done;
+    logic                           start_log_clean;
+    logic                           log_clean_done;
     logic                           log_ctrl_datap_incr_wr_addr;
     
-    logic                           log_ctrl_realign_wr_val;
-    logic                           log_ctrl_realign_wr_last;
-    logic                           realign_log_ctrl_wr_rdy;
-
-    logic                           insert_log_ctrl_rd_val;
-    logic                           insert_log_ctrl_rd_last;
-    logic                           log_ctrl_insert_rd_rdy;
+    logic                           realign_log_ctrl_rd_val;
+    logic                           realign_log_ctrl_rd_last;
+    logic                           log_ctrl_realign_rd_rdy;
     
-    logic                           realign_insert_data_val;
-    logic   [NOC_DATA_W-1:0]        realign_insert_data;
-    logic   [NOC_PADBYTES_W-1:0]    realign_insert_data_padbytes;
-    logic                           realign_insert_data_last;
-    logic                           insert_realign_data_rdy;
-
-    inserter_compile #(
-         .INSERT_W  (LOG_ENTRY_HDR_W)
-        ,.DATA_W    (NOC_DATA_W     )
-    ) log_hdr_inserter (
-         .clk   (clk    )
-        ,.rst   (rst    )
+    logic                           clean_ctrl_datap_store_hdr;
     
-        ,.insert_data               (datap_inserter_log_hdr         )
-        
-        ,.src_insert_data_val       (realign_insert_data_val        )
-        ,.src_insert_data           (realign_insert_data            )
-        ,.src_insert_data_padbytes  (realign_insert_data_padbytes   )
-        ,.src_insert_data_last      (realign_insert_data_last       )
-        ,.insert_src_data_rdy       (insert_realign_data_rdy        )
-    
-        ,.insert_dst_data_val       (insert_log_ctrl_rd_val         )
-        ,.insert_dst_data           (prep_log_mem_wr_data           )
-        ,.insert_dst_data_padbytes  (/* unused */)
-        ,.insert_dst_data_last      (insert_log_ctrl_rd_last        )
-        ,.dst_insert_data_rdy       (log_ctrl_insert_rd_rdy         )
-    );
-
     realign_compile #(
          .REALIGN_W     (PREPARE_MSG_HDR_W  )
         ,.DATA_W        (NOC_DATA_W         )
@@ -100,17 +84,17 @@ import beehive_udp_msg::*;
          .clk    (clk    )
         ,.rst    (rst    )
 
-        ,.src_realign_data_val      (log_ctrl_realign_wr_val        )
+        ,.src_realign_data_val      (manage_prep_req_val            )
         ,.src_realign_data          (manage_prep_req                )
         ,.src_realign_data_padbytes (manage_prep_req_padbytes       )
         ,.src_realign_data_last     (manage_prep_req_last           )
-        ,.realign_src_data_rdy      (realign_log_ctrl_wr_rdy        )
+        ,.realign_src_data_rdy      (prep_manage_req_rdy            )
 
-        ,.realign_dst_data_val      (realign_insert_data_val        )
-        ,.realign_dst_data          (realign_insert_data            )
-        ,.realign_dst_data_padbytes (realign_insert_data_padbytes   )
-        ,.realign_dst_data_last     (realign_insert_data_last       )
-        ,.dst_realign_data_rdy      (insert_realign_data_rdy        )
+        ,.realign_dst_data_val      (realign_log_ctrl_rd_val        )
+        ,.realign_dst_data          (prep_log_data_mem_wr_data      )
+        ,.realign_dst_data_padbytes ()
+        ,.realign_dst_data_last     (realign_log_ctrl_rd_last       )
+        ,.dst_realign_data_rdy      (log_ctrl_realign_rd_rdy        )
 
         ,.realign_dst_removed_data  ()
     );
@@ -129,43 +113,47 @@ import beehive_udp_msg::*;
                                                                         
         ,.prep_vr_state_wr_data         (prep_vr_state_wr_data          )
                                                                         
-        ,.prep_log_mem_wr_addr          (prep_log_mem_wr_addr           )
+        // log entry bus out
+        ,.prep_log_data_mem_wr_addr     (prep_log_data_mem_wr_addr      )
+                                                                        
+        ,.prep_log_hdr_mem_wr_addr      (prep_log_hdr_mem_wr_addr       )
+        ,.prep_log_hdr_mem_wr_data      (prep_log_hdr_mem_wr_data       )
+    
+        ,.prep_log_hdr_mem_rd_req_addr  (prep_log_hdr_mem_rd_req_addr   )
+                                                                        
+        ,.log_hdr_mem_prep_rd_resp_data (log_hdr_mem_prep_rd_resp_data  )
                                                                         
         ,.prep_to_udp_meta_info         (prep_to_udp_meta_info          )
                                                                         
         ,.prep_to_udp_data              (prep_to_udp_data               )
         ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes      )
                                                                         
-        ,.datap_inserter_log_hdr        (datap_inserter_log_hdr         )
-                                                                        
         ,.ctrl_datap_store_info         (ctrl_datap_store_info          )
         ,.log_ctrl_datap_incr_wr_addr   (log_ctrl_datap_incr_wr_addr    )
+        ,.clean_ctrl_datap_store_hdr    (clean_ctrl_datap_store_hdr     )
                                                                         
         ,.datap_ctrl_prep_ok            (datap_ctrl_prep_ok             )
         ,.datap_ctrl_log_has_space      (datap_ctrl_log_has_space       )
     );
 
-    prepare_log_ctrl log_ctrl (
+    prepare_eng_log_ctrl log_ctrl (
          .clk   (clk    )
         ,.rst   (rst    )
 
         ,.start_req_ingest              (start_req_ingest               )
         ,.log_write_done                (log_write_done                 )
-
-        ,.manage_prep_req_val           (manage_prep_req_val            )
-        ,.manage_prep_req_last          (manage_prep_req_last           )
-        ,.prep_manage_req_rdy           (prep_manage_req_rdy            )
-
-        ,.log_ctrl_realign_wr_val       (log_ctrl_realign_wr_val        )
-        ,.log_ctrl_realign_wr_last      (log_ctrl_realign_wr_last       )
-        ,.realign_log_ctrl_wr_rdy       (realign_log_ctrl_wr_rdy        )
-
-        ,.insert_log_ctrl_rd_val        (insert_log_ctrl_rd_val         )
-        ,.insert_log_ctrl_rd_last       (insert_log_ctrl_rd_last        )
-        ,.log_ctrl_insert_rd_rdy        (log_ctrl_insert_rd_rdy         )
-
-        ,.prep_log_mem_wr_val           (prep_log_mem_wr_val            )
-        ,.log_mem_prep_wr_rdy           (log_mem_prep_wr_rdy            )
+    
+        // realign bus out
+        ,.realign_log_ctrl_rd_val       (realign_log_ctrl_rd_val        )
+        ,.realign_log_ctrl_rd_last      (realign_log_ctrl_rd_last       )
+        ,.log_ctrl_realign_rd_rdy       (log_ctrl_realign_rd_rdy        )
+        
+        // log entry bus out
+        ,.prep_log_hdr_mem_wr_val       (prep_log_hdr_mem_wr_val        )
+        ,.log_hdr_mem_prep_wr_rdy       (log_hdr_mem_prep_wr_rdy        )
+                                                                        
+        ,.prep_log_data_mem_wr_val      (prep_log_data_mem_wr_val       )
+        ,.log_data_mem_prep_wr_rdy      (log_data_mem_prep_wr_rdy       )
 
         ,.log_ctrl_datap_incr_wr_addr   (log_ctrl_datap_incr_wr_addr    )
         ,.datap_ctrl_log_has_space      (datap_ctrl_log_has_space       )
@@ -188,6 +176,9 @@ import beehive_udp_msg::*;
 
         ,.start_req_ingest          (start_req_ingest           )
         ,.log_write_done            (log_write_done             )
+    
+        ,.start_log_clean           (start_log_clean            )
+        ,.log_clean_done            (log_clean_done             )
 
         ,.prep_to_udp_meta_val      (prep_to_udp_meta_val       )
         ,.to_udp_prep_meta_rdy      (to_udp_prep_meta_rdy       )
@@ -199,6 +190,22 @@ import beehive_udp_msg::*;
         ,.prep_engine_rdy           (prep_engine_rdy            )
     );
 
+
+    prepare_clean_log_ctrl clean_ctrl (
+         .clk   (clk    )
+        ,.rst   (rst    )
+    
+        ,.start_log_clean               (start_log_clean                )
+        ,.log_clean_done                (log_clean_done                 )
+                                                                        
+        ,.prep_log_hdr_mem_rd_req_val   (prep_log_hdr_mem_rd_req_val    )
+        ,.log_hdr_mem_prep_rd_req_rdy   (log_hdr_mem_prep_rd_req_rdy    )
+                                                                        
+        ,.log_hdr_mem_prep_rd_resp_val  (log_hdr_mem_prep_rd_resp_val   )
+        ,.prep_log_hdr_mem_rd_resp_rdy  (prep_log_hdr_mem_rd_resp_rdy   )
+                                                                        
+        ,.clean_ctrl_datap_store_hdr    (clean_ctrl_datap_store_hdr     )
+    );
 
 
 endmodule

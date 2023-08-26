@@ -19,13 +19,13 @@ import beehive_udp_msg::*;
     ,output vr_state                        commit_vr_state_wr_data
 
     // log entry rd bus
-    ,output logic   [LOG_DEPTH_W-1:0]       commit_log_mem_rd_req_addr
+    ,output logic   [LOG_HDR_DEPTH_W-1:0]   commit_log_hdr_mem_rd_req_addr
 
-    ,input  logic   [NOC_DATA_W-1:0]        log_mem_commit_rd_resp_data
+    ,input  log_entry_hdr                   log_hdr_mem_commit_rd_resp_data
     
     // log entry bus out
-    ,output logic   [NOC_DATA_W-1:0]        commit_log_mem_wr_data
-    ,output logic   [LOG_DEPTH_W-1:0]       commit_log_mem_wr_addr
+    ,output log_entry_hdr                   commit_log_hdr_mem_wr_data
+    ,output logic   [LOG_HDR_DEPTH_W-1:0]   commit_log_hdr_mem_wr_addr
     
     ,input  logic                           ctrl_datap_store_msg
     ,input  logic                           ctrl_datap_store_state
@@ -46,56 +46,57 @@ import beehive_udp_msg::*;
     vr_state        vr_state_next;
     vr_state        vr_state_new;
 
-    log_entry_hdr   log_entry_hdr_cast;
     log_entry_hdr   log_entry_hdr_new;
 
-    logic   [NOC_DATA_W-1:0]    log_entry_hdr_line_reg;
-    logic   [NOC_DATA_W-1:0]    log_entry_hdr_line_next;
+    log_entry_hdr   log_entry_hdr_reg;
+    log_entry_hdr   log_entry_hdr_next;
 
-    logic   [LOG_DEPTH_W-1:0]   log_entry_line_cnt;
+    logic   [LOG_HDR_DEPTH_W-1:0]   log_entry_offset;
 
-    logic   [LOG_DEPTH_W-1:0]   curr_log_addr_reg;
-    logic   [LOG_DEPTH_W-1:0]   curr_log_addr_next;
-    logic   [LOG_DEPTH_W-1:0]   next_log_addr;
+    logic   [LOG_HDR_DEPTH_W-1:0]   curr_log_addr_reg;
+    logic   [LOG_HDR_DEPTH_W-1:0]   curr_log_addr_next;
 
     always_ff @(posedge clk) begin
         hdr_reg <= hdr_next;
         vr_state_reg <= vr_state_next;
-        log_entry_hdr_line_reg <= log_entry_hdr_line_next;
+        log_entry_hdr_reg <= log_entry_hdr_next;
         curr_log_addr_reg <= curr_log_addr_next;
     end
 
-    assign log_entry_hdr_cast = log_entry_hdr_line_reg[NOC_DATA_W-1 -: LOG_ENTRY_HDR_W];
+    assign log_entry_hdr_next = ctrl_datap_store_log_entry
+                            ? log_hdr_mem_commit_rd_resp_data
+                            : log_entry_hdr_reg;
 
-    assign commit_log_mem_rd_req_addr = curr_log_addr_reg;
+    assign commit_log_hdr_mem_rd_req_addr = curr_log_addr_next;
 
     always_comb begin
         vr_state_new = vr_state_reg;
         vr_state_new.last_commit = hdr_reg.opnum;
-        vr_state_new.log_head = curr_log_addr_reg;
     end
 
     assign commit_vr_state_wr_data = vr_state_new;
 
     always_comb begin
-        log_entry_hdr_new = log_entry_hdr_cast;
+        log_entry_hdr_new = log_entry_hdr_reg;
         log_entry_hdr_new.log_entry_state = LOG_STATE_COMMITED;
     end
 
     // is it an even number of lines?
-    assign log_entry_line_cnt = log_entry_hdr_cast.entry_len[NOC_BYTES_W-1:0] == 0
-                                ? log_entry_hdr_cast.entry_len >> NOC_BYTES_W
+    assign log_payload_line_cnt = log_entry_hdr_reg.payload_len[NOC_BYTES_W-1:0] == 0
+                                ? log_entry_hdr_reg.payload_len >> NOC_BYTES_W
                                 // if there's extra space, just align to the next line
-                                : (log_entry_hdr_cast.entry_len >> NOC_BYTES_W) + 1'b1;
+                                : (log_entry_hdr_reg.payload_len >> NOC_BYTES_W) + 1'b1;
 
-    assign commit_log_mem_wr_addr = curr_log_addr_reg;
+    assign commit_log_hdr_mem_wr_addr = curr_log_addr_reg;
 
-    assign commit_log_mem_wr_data = {log_entry_hdr_new, log_entry_hdr_line_reg[NOC_DATA_W - LOG_ENTRY_HDR_W - 1:0]};
+    assign commit_log_hdr_mem_wr_data = log_entry_hdr_new;
+
+    assign log_entry_offset = hdr_next.opnum - vr_state_next.first_log_op;
 
     assign curr_log_addr_next = ctrl_datap_store_state
-                                ? vr_state_next.log_head
+                                ? vr_state_next.hdr_log_head + log_entry_offset
                                 : ctrl_datap_calc_next_entry
-                                    ? curr_log_addr_reg + log_entry_line_cnt
+                                    ? curr_log_addr_reg + 1'b1
                                     : curr_log_addr_reg;
                                 
 
@@ -107,16 +108,12 @@ import beehive_udp_msg::*;
                         ? vr_state_commit_rd_resp_data
                         : vr_state_reg;
 
-    assign log_entry_hdr_line_next = ctrl_datap_store_log_entry
-                                    ? log_mem_commit_rd_resp_data
-                                    : log_entry_hdr_line_reg;
-
     // for the commit to be good, we need to be in the right view
     // we also need the commit op number to be larger than last commit but smaller than last op
     assign datap_ctrl_commit_ok = (hdr_reg.view == vr_state_reg.curr_view)
                             && (hdr_reg.opnum > vr_state_reg.last_commit)
                             && (hdr_reg.opnum <= vr_state_reg.last_op);
 
-    assign datap_ctrl_last_commit = log_entry_hdr_cast.op_num == hdr_reg.opnum;
+    assign datap_ctrl_last_commit = log_entry_hdr_reg.op_num == hdr_reg.opnum;
                         
 endmodule

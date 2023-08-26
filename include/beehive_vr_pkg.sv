@@ -2,14 +2,18 @@ package beehive_vr_pkg;
     localparam INT_W = 64;
     localparam COUNT_W = 64;
 
+    localparam [31:0]   NONFRAG_MAGIC = 31'h18_03_05_20;
+
     localparam FRAG_MAGIC_W = 32;
     localparam MSG_LEN_W = 64;
 
     localparam LOG_W = 512;
     localparam LOG_W_BYTES = LOG_W/8;
     localparam LOG_W_BYTES_W = $clog2(LOG_W_BYTES);
-    localparam LOG_DEPTH = 1024;
+    localparam LOG_DEPTH = 2048;
     localparam LOG_DEPTH_W = $clog2(LOG_DEPTH);
+    localparam LOG_HDR_DEPTH = 4096;
+    localparam LOG_HDR_DEPTH_W = $clog2(LOG_HDR_DEPTH);
 
     localparam LOG_STATE_COMMITED = 0;
     localparam LOG_STATE_PREPARED = 1;
@@ -38,6 +42,7 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]     view;
         logic   [INT_W-1:0]     opnum;
         logic   [INT_W-1:0]     batchstart;
+        logic   [INT_W-1:0]     clean_up_to;
         logic   [COUNT_W-1:0]   req_count;
     } prepare_msg_hdr;
     localparam PREPARE_MSG_HDR_W = $bits(prepare_msg_hdr);
@@ -47,6 +52,7 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0] view;
         logic   [INT_W-1:0] opnum;
         logic   [INT_W-1:0] rep_index;
+        logic   [INT_W-1:0] last_committed;
     } prepare_ok_hdr;
     localparam PREPARE_OK_HDR_W = $bits(prepare_ok_hdr);
     localparam PREPARE_OK_HDR_BYTES = PREPARE_OK_HDR_W/8;
@@ -61,8 +67,11 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]         curr_view;
         logic   [INT_W-1:0]         last_op;
         logic   [INT_W-1:0]         my_replica_index;
-        logic   [LOG_DEPTH_W:0]     log_head;
-        logic   [LOG_DEPTH_W:0]     log_tail;
+        logic   [INT_W-1:0]         first_log_op;
+        logic   [LOG_HDR_DEPTH_W:0] hdr_log_head;
+        logic   [LOG_HDR_DEPTH_W:0] hdr_log_tail;
+        logic   [LOG_DEPTH_W:0]     data_log_head;
+        logic   [LOG_DEPTH_W:0]     data_log_tail;
         logic   [INT_W-1:0]         last_commit;
     } vr_state;
     localparam VR_STATE_W = $bits(vr_state);
@@ -71,11 +80,11 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]         view;
         logic   [INT_W-1:0]         op_num;
         logic   [INT_W-1:0]         log_entry_state;
-        logic   [INT_W-1:0]         entry_len;
+        logic   [INT_W-1:0]         payload_len;
+        logic   [LOG_DEPTH_W-1:0]   payload_addr;
         logic   [INT_W-1:0]         req_count;
     } log_entry_hdr;
     localparam LOG_ENTRY_HDR_W = $bits(log_entry_hdr);
-    localparam LOG_ENTRY_BYTES = LOG_ENTRY_HDR_W/8;
 
 
 

@@ -48,18 +48,26 @@ import beehive_vr_pkg::*;
     logic   [NOC_PADBYTES_W-1:0]    manage_commit_req_padbytes;
     logic                           commit_manage_req_rdy;
     
-    logic                           commit_log_mem_rd_req_val;
-    logic   [LOG_DEPTH_W-1:0]       commit_log_mem_rd_req_addr;
-    logic                           log_mem_commit_rd_req_rdy;
+    logic                           commit_log_hdr_mem_rd_req_val;
+    logic   [LOG_HDR_DEPTH_W-1:0]   commit_log_hdr_mem_rd_req_addr;
+    logic                           log_hdr_mem_commit_rd_req_rdy;
 
-    logic                           log_mem_commit_rd_resp_val;
-    logic   [NOC_DATA_W-1:0]        log_mem_commit_rd_resp_data;
-    logic                           commit_log_mem_rd_resp_rdy;
+    logic                           log_hdr_mem_commit_rd_resp_val;
+    log_entry_hdr                   log_hdr_mem_commit_rd_resp_data;
+    logic                           commit_log_hdr_mem_rd_resp_rdy;
     
-    logic                           commit_log_mem_wr_val;
-    logic   [NOC_DATA_W-1:0]        commit_log_mem_wr_data;
-    logic   [LOG_DEPTH_W-1:0]       commit_log_mem_wr_addr;
-    logic                           log_mem_commit_wr_rdy;
+    logic                           log_hdr_mem_rd_req_val;
+    logic   [LOG_HDR_DEPTH_W-1:0]   log_hdr_mem_rd_req_addr;
+    logic                           log_hdr_mem_rd_req_rdy;
+
+    logic                           log_hdr_mem_rd_resp_val;
+    log_entry_hdr                   log_hdr_mem_rd_resp_data;
+    logic                           log_hdr_mem_rd_resp_rdy;
+    
+    logic                           commit_log_hdr_mem_wr_val;
+    log_entry_hdr                   commit_log_hdr_mem_wr_data;
+    logic   [LOG_HDR_DEPTH_W-1:0]   commit_log_hdr_mem_wr_addr;
+    logic                           log_hdr_mem_commit_wr_rdy;
     
     logic                           splitter_setup_meta_val;
     udp_info                        splitter_setup_meta_info;
@@ -81,15 +89,33 @@ import beehive_vr_pkg::*;
     logic   [NOC_PADBYTES_W-1:0]    splitter_manage_data_padbytes;
     logic                           manage_splitter_data_rdy;
     
-    logic                           prep_log_mem_wr_val;
-    logic   [NOC_DATA_W-1:0]        prep_log_mem_wr_data;
-    logic   [LOG_DEPTH_W-1:0]       prep_log_mem_wr_addr;
-    logic                           log_mem_prep_wr_rdy;
+    logic                           prep_log_hdr_mem_wr_val;
+    log_entry_hdr                   prep_log_hdr_mem_wr_data;
+    logic   [LOG_HDR_DEPTH_W-1:0]   prep_log_hdr_mem_wr_addr;
+    logic                           log_hdr_mem_prep_wr_rdy;
+    
+    logic                           prep_log_data_mem_wr_val;
+    logic   [NOC_DATA_W-1:0]        prep_log_data_mem_wr_data;
+    logic   [LOG_DEPTH_W-1:0]       prep_log_data_mem_wr_addr;
+    logic                           log_data_mem_prep_wr_rdy;
 
-    logic                           log_mem_wr_req_val;
-    logic   [NOC_DATA_W-1:0]        log_mem_wr_req_data;
-    logic   [LOG_DEPTH_W-1:0]       log_mem_wr_req_addr;
-    logic                           log_mem_wr_req_rdy;
+    logic                           log_data_mem_wr_req_val;
+    logic   [NOC_DATA_W-1:0]        log_data_mem_wr_req_data;
+    logic   [LOG_DEPTH_W-1:0]       log_data_mem_wr_req_addr;
+    logic                           log_data_mem_wr_req_rdy;
+    
+    logic                           log_hdr_mem_wr_req_val;
+    log_entry_hdr                   log_hdr_mem_wr_req_data;
+    logic   [LOG_HDR_DEPTH_W-1:0]   log_hdr_mem_wr_req_addr;
+    logic                           log_hdr_mem_wr_req_rdy;
+
+    logic                           prep_log_hdr_mem_rd_req_val;
+    logic   [LOG_HDR_DEPTH_W-1:0]   prep_log_hdr_mem_rd_req_addr;
+    logic                           log_hdr_mem_prep_rd_req_rdy;
+
+    logic                           log_hdr_mem_prep_rd_resp_val;
+    log_entry_hdr                   log_hdr_mem_prep_rd_resp_data;
+    logic                           prep_log_hdr_mem_rd_resp_rdy;
 
     vr_state                        vr_state_reg;
     vr_state                        vr_state_next;
@@ -302,38 +328,51 @@ import beehive_vr_pkg::*;
     ) prep_eng (
          .clk   (clk    )
         ,.rst   (rst    )
+
+        ,.manage_prep_msg_val           (manage_prep_msg_val            )
+        ,.manage_prep_pkt_info          (manage_prep_pkt_info           )
+        ,.prep_manage_msg_rdy           (prep_manage_msg_rdy            )
+
+        ,.manage_prep_req_val           (manage_prep_req_val            )
+        ,.manage_prep_req               (manage_prep_req                )
+        ,.manage_prep_req_last          (manage_prep_req_last           )
+        ,.manage_prep_req_padbytes      (manage_prep_req_padbytes       )
+        ,.prep_manage_req_rdy           (prep_manage_req_rdy            )
+
+        ,.vr_state_prep_rd_resp_data    (vr_state_reg                   )
+
+        ,.prep_vr_state_wr_req          (prep_vr_state_wr_req           )
+        ,.prep_vr_state_wr_data         (prep_vr_state_wr_data          )
+
+        ,.prep_log_hdr_mem_wr_val       (prep_log_hdr_mem_wr_val        )
+        ,.prep_log_hdr_mem_wr_data      (prep_log_hdr_mem_wr_data       )
+        ,.prep_log_hdr_mem_wr_addr      (prep_log_hdr_mem_wr_addr       )
+        ,.log_hdr_mem_prep_wr_rdy       (log_hdr_mem_prep_wr_rdy        )
+
+        ,.prep_log_data_mem_wr_val      (prep_log_data_mem_wr_val       )
+        ,.prep_log_data_mem_wr_data     (prep_log_data_mem_wr_data      )
+        ,.prep_log_data_mem_wr_addr     (prep_log_data_mem_wr_addr      )
+        ,.log_data_mem_prep_wr_rdy      (log_data_mem_prep_wr_rdy       )
+
+        ,.prep_log_hdr_mem_rd_req_val   (prep_log_hdr_mem_rd_req_val    )
+        ,.prep_log_hdr_mem_rd_req_addr  (prep_log_hdr_mem_rd_req_addr   )
+        ,.log_hdr_mem_prep_rd_req_rdy   (log_hdr_mem_prep_rd_req_rdy    )
+
+        ,.log_hdr_mem_prep_rd_resp_val  (log_hdr_mem_prep_rd_resp_val   )
+        ,.log_hdr_mem_prep_rd_resp_data (log_hdr_mem_prep_rd_resp_data  )
+        ,.prep_log_hdr_mem_rd_resp_rdy  (prep_log_hdr_mem_rd_resp_rdy   )
     
-        ,.manage_prep_msg_val           (manage_prep_msg_val        )
-        ,.manage_prep_pkt_info          (manage_prep_pkt_info       )
-        ,.prep_manage_msg_rdy           (prep_manage_msg_rdy        )
-                                                                        
-        ,.manage_prep_req_val           (manage_prep_req_val        )
-        ,.manage_prep_req               (manage_prep_req            )
-        ,.manage_prep_req_last          (manage_prep_req_last       )
-        ,.manage_prep_req_padbytes      (manage_prep_req_padbytes   )
-        ,.prep_manage_req_rdy           (prep_manage_req_rdy        )
-    
-        ,.vr_state_prep_rd_resp_data    (vr_state_reg               )
-    
-        ,.prep_vr_state_wr_req          (prep_vr_state_wr_req       )
-        ,.prep_vr_state_wr_data         (prep_vr_state_wr_data      )
-                                                                        
-        ,.prep_log_mem_wr_val           (prep_log_mem_wr_val        )
-        ,.prep_log_mem_wr_data          (prep_log_mem_wr_data       )
-        ,.prep_log_mem_wr_addr          (prep_log_mem_wr_addr       )
-        ,.log_mem_prep_wr_rdy           (log_mem_prep_wr_rdy        )
-        
-        ,.prep_to_udp_meta_val          (prep_to_udp_meta_val       )
-        ,.prep_to_udp_meta_info         (prep_to_udp_meta_info      )
-        ,.to_udp_prep_meta_rdy          (to_udp_prep_meta_rdy       )
-                                                                    
-        ,.prep_to_udp_data_val          (prep_to_udp_data_val       )
-        ,.prep_to_udp_data              (prep_to_udp_data           )
-        ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes  )
-        ,.prep_to_udp_data_last         (prep_to_udp_data_last      )
-        ,.to_udp_prep_data_rdy          (to_udp_prep_data_rdy       )
-        
-        ,.prep_engine_rdy               (prep_engine_rdy            )
+        ,.prep_to_udp_meta_val          (prep_to_udp_meta_val           )
+        ,.prep_to_udp_meta_info         (prep_to_udp_meta_info          )
+        ,.to_udp_prep_meta_rdy          (to_udp_prep_meta_rdy           )
+
+        ,.prep_to_udp_data_val          (prep_to_udp_data_val           )
+        ,.prep_to_udp_data              (prep_to_udp_data               )
+        ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes      )
+        ,.prep_to_udp_data_last         (prep_to_udp_data_last          )
+        ,.to_udp_prep_data_rdy          (to_udp_prep_data_rdy           )
+
+        ,.prep_engine_rdy               (prep_engine_rdy                )
     );
 
     commit_eng #(
@@ -342,72 +381,134 @@ import beehive_vr_pkg::*;
          .clk   (clk    )
         ,.rst   (rst    )
         
-        ,.manage_commit_msg_val         (manage_commit_msg_val          )
-        ,.manage_commit_pkt_info        (manage_commit_pkt_info         )
-        ,.commit_manage_msg_rdy         (commit_manage_msg_rdy          )
-                                                                        
-        ,.manage_commit_req_val         (manage_commit_req_val          )
-        ,.manage_commit_req             (manage_commit_req              )
-        ,.manage_commit_req_last        (manage_commit_req_last         )
-        ,.manage_commit_req_padbytes    (manage_commit_req_padbytes     )
-        ,.commit_manage_req_rdy         (commit_manage_req_rdy          )
-                                                                        
-        ,.vr_state_commit_rd_resp_data  (vr_state_reg                   )
-                                                                        
-        ,.commit_vr_state_wr_req        (commit_vr_state_wr_req         )
-        ,.commit_vr_state_wr_data       (commit_vr_state_wr_data        )
-        ,.vr_state_commit_wr_rdy        (vr_state_commit_wr_rdy         )
-                                                                        
-        ,.commit_log_mem_rd_req_val     (commit_log_mem_rd_req_val      )
-        ,.commit_log_mem_rd_req_addr    (commit_log_mem_rd_req_addr     )
-        ,.log_mem_commit_rd_req_rdy     (log_mem_commit_rd_req_rdy      )
-                                                                        
-        ,.log_mem_commit_rd_resp_val    (log_mem_commit_rd_resp_val     )
-        ,.log_mem_commit_rd_resp_data   (log_mem_commit_rd_resp_data    )
-        ,.commit_log_mem_rd_resp_rdy    (commit_log_mem_rd_resp_rdy     )
-                                                                        
-        ,.commit_log_mem_wr_val         (commit_log_mem_wr_val          )
-        ,.commit_log_mem_wr_data        (commit_log_mem_wr_data         )
-        ,.commit_log_mem_wr_addr        (commit_log_mem_wr_addr         )
-        ,.log_mem_commit_wr_rdy         (log_mem_commit_wr_rdy          )
+        ,.manage_commit_msg_val             (manage_commit_msg_val              )
+        ,.manage_commit_pkt_info            (manage_commit_pkt_info             )
+        ,.commit_manage_msg_rdy             (commit_manage_msg_rdy              )
+                                                                           
+        ,.manage_commit_req_val             (manage_commit_req_val              )
+        ,.manage_commit_req                 (manage_commit_req                  )
+        ,.manage_commit_req_last            (manage_commit_req_last             )
+        ,.manage_commit_req_padbytes        (manage_commit_req_padbytes         )
+        ,.commit_manage_req_rdy             (commit_manage_req_rdy              )
+                                                                           
+        ,.vr_state_commit_rd_resp_data      (vr_state_reg                       )
+                                                                           
+        ,.commit_vr_state_wr_req            (commit_vr_state_wr_req             )
+        ,.commit_vr_state_wr_data           (commit_vr_state_wr_data            )
+        ,.vr_state_commit_wr_rdy            (vr_state_commit_wr_rdy             )
+    
+        // log entry rd bus
+        ,.commit_log_hdr_mem_rd_req_val     (commit_log_hdr_mem_rd_req_val      )
+        ,.commit_log_hdr_mem_rd_req_addr    (commit_log_hdr_mem_rd_req_addr     )
+        ,.log_hdr_mem_commit_rd_req_rdy     (log_hdr_mem_commit_rd_req_rdy      )
+                                                                                
+        ,.log_hdr_mem_commit_rd_resp_val    (log_hdr_mem_commit_rd_resp_val     )
+        ,.log_hdr_mem_commit_rd_resp_data   (log_hdr_mem_commit_rd_resp_data    )
+        ,.commit_log_hdr_mem_rd_resp_rdy    (commit_log_hdr_mem_rd_resp_rdy     )
 
-        ,.commit_eng_rdy                (commit_eng_rdy                 )
+        // log entry bus out
+        ,.commit_log_hdr_mem_wr_val         (commit_log_hdr_mem_wr_val          )
+        ,.commit_log_hdr_mem_wr_data        (commit_log_hdr_mem_wr_data         )
+        ,.commit_log_hdr_mem_wr_addr        (commit_log_hdr_mem_wr_addr         )
+        ,.log_hdr_mem_commit_wr_rdy         (log_hdr_mem_commit_wr_rdy          )
+                                                                           
+        ,.commit_eng_rdy                    (commit_eng_rdy                     )
     );
 
     always_comb begin
-        log_mem_prep_wr_rdy = 1'b0;
-        if (prep_log_mem_wr_val) begin
-            log_mem_wr_req_val = prep_log_mem_wr_val;
-            log_mem_wr_req_data = prep_log_mem_wr_data;
-            log_mem_wr_req_addr = prep_log_mem_wr_addr;
-            log_mem_prep_wr_rdy = log_mem_wr_req_rdy;
+        log_hdr_mem_prep_wr_rdy = 1'b0;
+        log_hdr_mem_commit_wr_rdy = 1'b0;
+
+        if (prep_log_hdr_mem_wr_val) begin
+            log_hdr_mem_wr_req_val = prep_log_hdr_mem_wr_val;
+            log_hdr_mem_wr_req_data = prep_log_hdr_mem_wr_data;
+            log_hdr_mem_wr_req_addr = prep_log_hdr_mem_wr_addr;
+            log_hdr_mem_prep_wr_rdy = log_hdr_mem_wr_req_rdy;
         end
         else begin
-            log_mem_wr_req_val = commit_log_mem_wr_val;
-            log_mem_wr_req_data = commit_log_mem_wr_data;
-            log_mem_wr_req_addr = commit_log_mem_wr_addr;
-            log_mem_commit_wr_rdy = log_mem_wr_req_rdy;
+            log_hdr_mem_wr_req_val = commit_log_hdr_mem_wr_val;
+            log_hdr_mem_wr_req_data = commit_log_hdr_mem_wr_data;
+            log_hdr_mem_wr_req_addr = commit_log_hdr_mem_wr_addr;
+            log_hdr_mem_commit_wr_rdy = log_hdr_mem_wr_req_rdy;
         end
     end
+
+    assign log_data_mem_wr_req_val = prep_log_data_mem_wr_val;
+    assign log_data_mem_wr_req_data = prep_log_data_mem_wr_data;
+    assign log_data_mem_wr_req_addr = prep_log_data_mem_wr_addr;
+    assign log_data_mem_prep_wr_rdy= log_data_mem_wr_req_rdy;
+
+    mem_mux #(
+         .ADDR_W    (LOG_HDR_DEPTH_W    )
+        ,.DATA_W    (LOG_ENTRY_HDR_W    )
+    ) hdr_rd_mux (
+         .clk   (clk    )
+        ,.rst   (rst    )
+    
+        ,.src0_rd_req_val   (prep_log_hdr_mem_rd_req_val    )
+        ,.src0_rd_req_addr  (prep_log_hdr_mem_rd_req_addr   )
+        ,.src0_rd_req_rdy   (log_hdr_mem_prep_rd_req_rdy    )
+        
+        ,.src0_rd_resp_val  (log_hdr_mem_prep_rd_resp_val   )
+        ,.src0_rd_resp_data (log_hdr_mem_prep_rd_resp_data  )
+        ,.src0_rd_resp_rdy  (prep_log_hdr_mem_rd_resp_rdy   )
+        
+        ,.src1_rd_req_val   (commit_log_hdr_mem_rd_req_val  )
+        ,.src1_rd_req_addr  (commit_log_hdr_mem_rd_req_addr )
+        ,.src1_rd_req_rdy   (log_hdr_mem_commit_rd_req_rdy  )
+        
+        ,.src1_rd_resp_val  (log_hdr_mem_commit_rd_resp_val )
+        ,.src1_rd_resp_data (log_hdr_mem_commit_rd_resp_data)
+        ,.src1_rd_resp_rdy  (commit_log_hdr_mem_rd_resp_rdy )
+    
+        ,.dst_rd_req_val    (log_hdr_mem_rd_req_val         )
+        ,.dst_rd_req_addr   (log_hdr_mem_rd_req_addr        )
+        ,.dst_rd_req_rdy    (log_hdr_mem_rd_req_rdy         )
+        
+        ,.dst_rd_resp_val   (log_hdr_mem_rd_resp_val        )
+        ,.dst_rd_resp_data  (log_hdr_mem_rd_resp_data       )
+        ,.dst_rd_resp_rdy   (log_hdr_mem_rd_resp_rdy        )
+    );
+    
+    ram_1r1w_sync_backpressure #(
+         .width_p   (LOG_ENTRY_HDR_W    )
+        ,.els_p     (LOG_HDR_DEPTH      )
+    ) log_hdr_mem (
+         .clk   (clk    )
+        ,.rst   (rst    )
+    
+        ,.wr_req_val    (log_hdr_mem_wr_req_val         )
+        ,.wr_req_addr   (log_hdr_mem_wr_req_addr        )
+        ,.wr_req_data   (log_hdr_mem_wr_req_data        )
+        ,.wr_req_rdy    (log_hdr_mem_wr_req_rdy         )
+    
+        ,.rd_req_val    (log_hdr_mem_rd_req_val         )
+        ,.rd_req_addr   (log_hdr_mem_rd_req_addr        )
+        ,.rd_req_rdy    (log_hdr_mem_rd_req_rdy         )
+                                                        
+        ,.rd_resp_val   (log_hdr_mem_rd_resp_val        )
+        ,.rd_resp_data  (log_hdr_mem_rd_resp_data       )
+        ,.rd_resp_rdy   (log_hdr_mem_rd_resp_rdy        )
+    );
 
     ram_1r1w_sync_backpressure #(
          .width_p   (LOG_W      )
         ,.els_p     (LOG_DEPTH  )
-    ) log_mem (
+    ) log_data_mem (
          .clk   (clk    )
         ,.rst   (rst    )
     
-        ,.wr_req_val    (log_mem_wr_req_val         )
-        ,.wr_req_addr   (log_mem_wr_req_addr        )
-        ,.wr_req_data   (log_mem_wr_req_data        )
-        ,.wr_req_rdy    (log_mem_wr_req_rdy         )
+        ,.wr_req_val    (log_data_mem_wr_req_val         )
+        ,.wr_req_addr   (log_data_mem_wr_req_addr        )
+        ,.wr_req_data   (log_data_mem_wr_req_data        )
+        ,.wr_req_rdy    (log_data_mem_wr_req_rdy         )
     
-        ,.rd_req_val    (commit_log_mem_rd_req_val  )
-        ,.rd_req_addr   (commit_log_mem_rd_req_addr )
-        ,.rd_req_rdy    (log_mem_commit_rd_req_rdy  )
+        ,.rd_req_val    ('0)
+        ,.rd_req_addr   ('0)
+        ,.rd_req_rdy    ()
     
-        ,.rd_resp_val   (log_mem_commit_rd_resp_val )
-        ,.rd_resp_data  (log_mem_commit_rd_resp_data)
-        ,.rd_resp_rdy   (commit_log_mem_rd_resp_rdy )
+        ,.rd_resp_val   ()
+        ,.rd_resp_data  ()
+        ,.rd_resp_rdy   ('0)
     );
 endmodule
