@@ -72,6 +72,8 @@ import beehive_udp_msg::*;
     always_comb begin
         store_info = 1'b0;
 
+        setup_vr_state_wr_val = 1'b0;
+
         setup_src_msg_rdy = 1'b0;
         setup_src_req_rdy = 1'b0;
         setup_to_udp_meta_val = 1'b0;

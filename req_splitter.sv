@@ -79,7 +79,7 @@ import beehive_topology::*;
     assign splitter_manage_data_last = fr_udp_beehive_vr_data_last;
     assign splitter_manage_data_padbytes = fr_udp_beehive_vr_data_padbytes;
 
-    assign dst_sel = dst_port_next == SETUP_PORT
+    assign dst_sel = dst_port_next == APP_SETUP_PORT
                     ? '0
                     : 1'b1;
 
