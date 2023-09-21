@@ -1,4 +1,7 @@
 package beehive_vr_pkg;
+    `include "packet_defs.vh"
+    `include "noc_defs.vh"
+
     localparam INT_W = 64;
     localparam COUNT_W = 64;
 
@@ -17,6 +20,11 @@ package beehive_vr_pkg;
 
     localparam LOG_STATE_COMMITED = 0;
     localparam LOG_STATE_PREPARED = 1;
+    
+    typedef enum logic {
+        NORMAL = 1'd0,
+        VIEW_CHANGE = 1'd1
+    } rep_status;
 
     typedef enum logic[7:0] {
         Prepare = 8'd5,
@@ -73,6 +81,7 @@ package beehive_vr_pkg;
         logic   [LOG_DEPTH_W:0]     data_log_head;
         logic   [LOG_DEPTH_W:0]     data_log_tail;
         logic   [INT_W-1:0]         last_commit;
+        rep_status                  curr_status;
     } vr_state;
     localparam VR_STATE_W = $bits(vr_state);
 
@@ -85,6 +94,23 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]         req_count;
     } log_entry_hdr;
     localparam LOG_ENTRY_HDR_W = $bits(log_entry_hdr);
+    
+    typedef struct packed {
+        logic   [`IP_ADDR_W-1:0]    ip_addr;
+        logic   [`PORT_NUM_W-1:0]   port_num;
+    } machine_tuple;
+    localparam MACHINE_TUPLE_W = $bits(machine_tuple);
+
+    localparam CONFIG_NODE_CNT_W = 32;
+    localparam MACHINE_INFO_W = `NOC_DATA_WIDTH - MACHINE_TUPLE_W - CONFIG_NODE_CNT_W;
+    localparam MAX_CLUSTER_SIZE = (MACHINE_INFO_W + MACHINE_TUPLE_W)/MACHINE_TUPLE_W;
+    localparam CONFIG_ADDR_W = $clog2(MAX_CLUSTER_SIZE);
+    typedef struct packed {
+        logic   [CONFIG_NODE_CNT_W-1:0] node_cnt;
+        machine_tuple                   our_tuple;
+        logic   [MACHINE_INFO_W-1:0]    machine_config;
+    } config_pkt; 
+
 
 
 

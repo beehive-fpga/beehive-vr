@@ -122,6 +122,15 @@ import beehive_vr_pkg::*;
     
     logic                           setup_vr_state_wr_val;
     vr_state                        setup_vr_state_wr_data;
+    
+    logic                           wr_config_val;
+    logic   [CONFIG_NODE_CNT_W-1:0] wr_node_count;
+    machine_tuple                   wr_our_tuple;
+
+    logic                           wr_machine_data_val;
+    machine_tuple                   wr_machine_data;
+    logic   [CONFIG_ADDR_W-1:0]     wr_machine_data_addr;
+    logic                           wr_machine_data_rdy;
 
     logic                           setup_eng_rdy;
     logic                           commit_eng_rdy;
@@ -154,6 +163,10 @@ import beehive_vr_pkg::*;
     
     logic                           prep_vr_state_wr_req;
     vr_state                        prep_vr_state_wr_data;
+    
+    logic   [CONFIG_NODE_CNT_W-1:0] node_count_reg;
+    machine_tuple                   our_tuple_reg;
+
 
     assign all_eng_rdy = setup_eng_rdy & commit_eng_rdy & prep_engine_rdy;
 
@@ -279,6 +292,17 @@ import beehive_vr_pkg::*;
         ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbytes     )
         ,.setup_to_udp_data_last        (setup_to_udp_data_last         )
         ,.to_udp_setup_data_rdy         (to_udp_setup_data_rdy          )
+    
+        ,.wr_config_val                 (wr_config_val                  )
+        ,.wr_node_count                 (wr_node_count                  )
+        ,.wr_our_tuple                  (wr_our_tuple                   )
+    
+        ,.node_count                    (node_count_reg                 )
+    
+        ,.wr_machine_data_val           (wr_machine_data_val            )
+        ,.wr_machine_data               (wr_machine_data                )
+        ,.wr_machine_data_addr          (wr_machine_data_addr           )
+        ,.wr_machine_data_rdy           (1'b1)
 
         ,.setup_eng_rdy                 (setup_eng_rdy                  )
     );
@@ -511,4 +535,29 @@ import beehive_vr_pkg::*;
         ,.rd_resp_data  ()
         ,.rd_resp_rdy   ('0)
     );
+
+    always_ff @(posedge clk) begin
+        if (wr_config_val) begin
+            node_count_reg <= wr_node_count;
+            our_tuple_reg <= wr_our_tuple;
+        end
+    end
+
+    ram_1r1w_sync #(
+         .DATA_W    (MACHINE_TUPLE_W    )
+        ,.DEPTH     (MAX_CLUSTER_SIZE   )
+    ) config_ram (
+         .clk   (clk    )
+        ,.rst   (rst    )
+    
+        ,.wr_en_a   (wr_machine_data_val    )
+        ,.wr_addr_a (wr_machine_data_addr   )
+        ,.wr_data_a (wr_machine_data        )
+    
+        ,.rd_en_a   ()
+        ,.rd_addr_a ()
+    
+        ,.rd_data_a ()
+    );
+
 endmodule
