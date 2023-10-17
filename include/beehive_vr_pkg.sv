@@ -72,6 +72,34 @@ package beehive_vr_pkg;
     localparam COMMIT_MSG_HDR_W = $bits(commit_msg_hdr);
 
     typedef struct packed {
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] rep_index;
+        logic   [INT_W-1:0] last_committed;
+    } start_view_change_hdr;
+    localparam START_VIEW_CHANGE_HDR_W = $bits(start_view_change_hdr);
+    localparam START_VIEW_CHANGE_HDR_BYTES = START_VIEW_CHANGE_HDR_W/8;
+
+    typedef struct packed {
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] last_norm_view;
+        logic   [INT_W-1:0] last_op;
+        logic   [INT_W-1:0] last_committed;
+        logic   [INT_W-1:0] rep_index;
+        logic   [INT_W-1:0] byte_count;
+    } do_view_change_hdr;
+    localparam DO_VIEW_CHANGE_HDR_W = $bits(do_view_change_hdr);
+    localparam DO_VIEW_CHANGE_HDR_BYTES = DO_VIEW_CHANGE_HDR_W/8;
+
+    typedef struct packed {
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] last_op;
+        logic   [INT_W-1:0] last_committed;
+        logic   [INT_W-1:0] byte_count;
+    } start_view_hdr;
+    localparam START_VIEW_HDR_W = $bits(start_view_hdr);
+    localparam START_VIEW_HDR_BYTES = START_VIEW_HDR_W/8;
+
+    typedef struct packed {
         logic   [INT_W-1:0]         curr_view;
         logic   [INT_W-1:0]         last_op;
         logic   [INT_W-1:0]         my_replica_index;
@@ -94,6 +122,24 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0]         req_count;
     } log_entry_hdr;
     localparam LOG_ENTRY_HDR_W = $bits(log_entry_hdr);
+
+    typedef struct packed {
+        logic   [INT_W-1:0] clientid;
+        logic   [INT_W-1:0] clientreqid;
+        logic   [INT_W-1:0] op_bytes_len
+    } request_hdr;
+    localparam REQUEST_HDR_W = $bits(request_hdr);
+    localparam REQUEST_HDR_BYTES = REQUEST_HDR_W/8;
+    
+    typedef struct packed {
+        logic   [INT_W-1:0] total_size;
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] op_num;
+        logic   [INT_W-1:0] log_entry_state;
+        // FIXME: this assumes the hash is never used
+        logic   [INT_W-1:0] hash_bytes_count;
+        request_hdr         request;
+    } wire_log_entry_hdr;
     
     typedef struct packed {
         logic   [`IP_ADDR_W-1:0]    ip_addr;

@@ -27,6 +27,16 @@ import beehive_udp_msg::*;
     ,input  logic   [NOC_PADBYTES_W-1:0]    prep_to_udp_data_padbytes
     ,input  logic                           prep_to_udp_data_last
     ,output logic                           to_udp_prep_data_rdy
+    
+    ,input  logic                           vc_to_udp_meta_val
+    ,input  udp_info                        vc_to_udp_meta_info
+    ,output logic                           to_udp_vc_meta_rdy
+
+    ,input  logic                           vc_to_udp_data_val
+    ,input  logic   [NOC_DATA_W-1:0]        vc_to_udp_data
+    ,input  logic   [NOC_PADBYTES_W-1:0]    vc_to_udp_data_padbytes
+    ,input  logic                           vc_to_udp_data_last
+    ,output logic                           to_udp_vc_data_rdy
 
     ,output logic                           merger_dst_meta_val
     ,output udp_info                        merger_dst_meta_info
@@ -39,7 +49,7 @@ import beehive_udp_msg::*;
     ,input  logic                           dst_merger_data_rdy
 );
 
-    localparam NUM_SRCS = 2;
+    localparam NUM_SRCS = 3;
 
     typedef enum logic {
         META_OUT = 1'b0,
@@ -78,8 +88,8 @@ import beehive_udp_msg::*;
 
     logic                   meta_dst_val;
 
-    assign src_meta_vals = {setup_to_udp_meta_val, prep_to_udp_meta_val};
-    assign {to_udp_setup_meta_rdy, to_udp_prep_meta_rdy} = src_meta_rdys;
+    assign src_meta_vals = {vc_to_udp_meta_val, setup_to_udp_meta_val, prep_to_udp_meta_val};
+    assign {to_udp_vc_meta_rdy, to_udp_setup_meta_rdy, to_udp_prep_meta_rdy} = src_meta_rdys;
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -196,7 +206,7 @@ import beehive_udp_msg::*;
          .width_p   (UDP_INFO_W )
         ,.els_p     (NUM_SRCS   )
     ) info_mux (
-         .data_i        ({setup_to_udp_meta_info, prep_to_udp_meta_info})
+         .data_i        ({vc_to_udp_meta_info, setup_to_udp_meta_info, prep_to_udp_meta_info})
         ,.sel_one_hot_i (grants_next            )
         ,.data_o        (merger_dst_meta_info   )
     );
@@ -224,7 +234,7 @@ import beehive_udp_msg::*;
          .width_p   (1  )
         ,.els_p     (NUM_SRCS   )
     ) data_val_mux (
-         .data_i        ({setup_to_udp_data_val, prep_to_udp_data_val})
+         .data_i        ({vc_to_udp_data_val, setup_to_udp_data_val, prep_to_udp_data_val})
         ,.sel_one_hot_i (grants_next            )
         ,.data_o        (src_merger_data_val    )
     );
@@ -235,14 +245,14 @@ import beehive_udp_msg::*;
     ) data_rdy_demux (
          .input_sel     (grants_next            )
         ,.data_input    (merger_src_data_rdy    )
-        ,.data_outputs  ({to_udp_setup_data_rdy, to_udp_prep_data_rdy})
+        ,.data_outputs  ({to_udp_vc_data_rdy, to_udp_setup_data_rdy, to_udp_prep_data_rdy})
     );
     
     bsg_mux_one_hot #(
          .width_p   (1  )
         ,.els_p     (NUM_SRCS   )
     ) data_last_mux (
-         .data_i        ({setup_to_udp_data_last, prep_to_udp_data_last})
+         .data_i        ({vc_to_udp_data_last, setup_to_udp_data_last, prep_to_udp_data_last})
         ,.sel_one_hot_i (grants_next            )
         ,.data_o        (merger_dst_data_last   )
     );
@@ -251,7 +261,7 @@ import beehive_udp_msg::*;
          .width_p   (NOC_PADBYTES_W )
         ,.els_p     (NUM_SRCS       )
     ) data_padbytes_mux (
-         .data_i        ({setup_to_udp_data_padbytes, prep_to_udp_data_padbytes})
+         .data_i        ({vc_to_udp_data_padbytes, setup_to_udp_data_padbytes, prep_to_udp_data_padbytes})
         ,.sel_one_hot_i (grants_next                )
         ,.data_o        (merger_dst_data_padbytes   )
     );
@@ -260,7 +270,7 @@ import beehive_udp_msg::*;
          .width_p   (NOC_DATA_W )
         ,.els_p     (NUM_SRCS   )
     ) data_mux (
-         .data_i        ({setup_to_udp_data, prep_to_udp_data})
+         .data_i        ({vc_to_udp_data, setup_to_udp_data, prep_to_udp_data})
         ,.sel_one_hot_i (grants_next        )
         ,.data_o        (merger_dst_data    )
     );
