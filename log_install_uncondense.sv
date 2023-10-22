@@ -1,4 +1,11 @@
-module log_install_uncondense (
+module log_install_uncondense  
+import beehive_vr_pkg::*;
+#(
+     parameter NOC_DATA_W = -1
+    ,parameter NOC_DATA_BYTES = NOC_DATA_W/8
+    ,parameter NOC_PADBYTES = NOC_DATA_BYTES
+    ,parameter NOC_PADBYTES_W = $clog2(NOC_PADBYTES)
+)(
      input clk
     ,input rst
 
@@ -32,7 +39,7 @@ module log_install_uncondense (
     ,output logic   [LOG_DEPTH_W-1:0]       install_log_data_mem_wr_addr
     ,input  logic                           log_data_mem_install_wr_rdy
     
-    ,output                                 log_install_dst_val
+    ,output logic                           log_install_dst_val
     ,output logic   [LOG_HDR_DEPTH_W:0]     log_install_dst_hdr_log_tail
     ,output logic   [LOG_HDR_DEPTH_W:0]     log_install_dst_data_log_tail
     ,input  logic                           dst_log_install_rdy
@@ -47,7 +54,7 @@ module log_install_uncondense (
         WR_LOG_ENTRY_DATA = 4'd5,
         DRAIN_DATA = 4'd6,
         CALC_DIVERGENCE = 4'd7,
-        STATE_OUT = 4'd8,
+        STATE_OUT = 4'd8
     } state_e;
 
     state_e state_reg;
@@ -69,7 +76,6 @@ module log_install_uncondense (
     logic                       init_inputs;
     logic                       truncate_log;
     logic                       incr_tail_ptr;
-    logic                       incr_tail_data_ptr;
 
     logic   [LOG_HDR_DEPTH_W:0] hdr_ptr_reg;
     logic   [LOG_HDR_DEPTH_W:0] hdr_ptr_next;
@@ -88,6 +94,8 @@ module log_install_uncondense (
 
     logic   [INT_W-1:0]         log_start_op_reg;
     logic   [INT_W-1:0]         log_start_op_next;
+
+    logic   [INT_W-1:0]         log_last_op;
 
     logic                       op_in_range;
 
@@ -109,7 +117,6 @@ module log_install_uncondense (
             hdr_ptr_reg <= hdr_ptr_next;
             tail_ptr_reg <= tail_ptr_next;
             tail_data_ptr_reg <= tail_data_ptr_next;
-            curr_data_ptr_reg <= curr_data_ptr_next;
             log_entries_reg <= log_entries_next;
             log_start_op_reg <= log_start_op_next;
         end
@@ -127,12 +134,12 @@ module log_install_uncondense (
         install_log_hdr_mem_wr_data.op_num = wire_entry_hdr_reg.op_num;
         install_log_hdr_mem_wr_data.log_entry_state = wire_entry_hdr_reg.log_entry_state;
         install_log_hdr_mem_wr_data.payload_len = wire_entry_hdr_reg.request.op_bytes_len + REQUEST_HDR_BYTES;
-        install_log_hdr_mem_wr_data.payload_addr = curr_data_ptr_reg;
+        install_log_hdr_mem_wr_data.payload_addr = tail_data_ptr_reg;
         install_log_hdr_mem_wr_data.req_count = 1;
     end
 
     assign install_log_data_mem_wr_addr = tail_data_ptr_reg;
-    assign install_log_data_mem_wr_data = realign_separate_data;
+    assign install_log_data_mem_wr_data = src_install_req;
 
     assign log_entries_next = init_inputs
                         ? log_tail_ptr - log_hdr_ptr
@@ -144,13 +151,23 @@ module log_install_uncondense (
     assign log_install_dst_hdr_log_tail = tail_ptr_reg;
     assign log_install_dst_data_log_tail = tail_data_ptr_reg;
 
-    assign log_last_op = (log_start_op + log_entries_reg) - 1;
-    
-    assign entry_bytes_in_next = reset_entry_bytes_in
-                            ? '0
-                            : incr_entry_bytes_in
-                                ? entry_bytes_in_reg + `NOC_DATA_BYTES
-                                : entry_bytes_in_reg;
+    assign log_last_op = (log_start_op_reg + log_entries_reg) - 1;
+   
+
+    always_comb begin
+        entry_bytes_in_next = entry_bytes_in_reg;
+        if (reset_entry_bytes_in) begin
+            if (incr_entry_bytes_in) begin
+                entry_bytes_in_next = NOC_DATA_BYTES;
+            end
+            else begin
+                entry_bytes_in_next = '0;
+            end
+        end
+        else if (incr_entry_bytes_in) begin
+            entry_bytes_in_next = entry_bytes_in_reg + NOC_DATA_BYTES;
+        end
+    end
                 
     assign hdr_ptr_next = init_inputs
                         ? log_hdr_ptr
@@ -164,37 +181,32 @@ module log_install_uncondense (
                                 ? tail_ptr_reg + 1'b1
                                 : tail_ptr_reg;
 
-    assign log_entry_line_cnt = store_mem_entry_hdr.payload_len[LOG_W_BYTES_W-1:0] == 0
-        ? store_mem_entry_hdr.payload_len[LOG_W_BYTES_W-1:0] >> LOG_W_BYTES_W
-        : (store_mem_entry_hdr.payload_len[LOG_W_BYTES_W-1:0] >> LOG_W_BYTES_W) + 1'b1;
+    assign log_entry_line_cnt = stored_hdr_reg.payload_len[LOG_W_BYTES_W-1:0] == 0
+        ? stored_hdr_reg.payload_len[LOG_W_BYTES_W-1:0] >> LOG_W_BYTES_W
+        : (stored_hdr_reg.payload_len[LOG_W_BYTES_W-1:0] >> LOG_W_BYTES_W) + 1'b1;
 
     assign tail_data_ptr_next = init_inputs
                             ? log_data_tail_ptr
                             : truncate_log
-                                ? store_mem_entry_hdr.payload_addr + log_entry_line_cnt
+                                ? stored_hdr_reg.payload_addr + log_entry_line_cnt
                                 : incr_tail_data_ptr
                                     ? tail_data_ptr_reg + 1'b1
                                     : tail_data_ptr_reg;
 
-    assign curr_data_ptr_next = init_curr_data_ptr
-                            ? store_mem_entry_hdr.payload_addr
-                            : incr_curr_data_ptr
-                                ? curr_data_ptr_reg + 1'b1
-                                : curr_data_ptr_reg;
-
-    assign last_entry_bytes = (wire_entry_hdr_reg.total_size - entry_bytes_in_reg) <= `NOC_DATA_BYTES;
+    assign last_entry_bytes = (wire_entry_hdr_reg.total_size - entry_bytes_in_reg) <= NOC_DATA_BYTES;
 
     assign stored_hdr_next = store_mem_entry_hdr
                             ? log_hdr_mem_install_rd_resp_data
                             : stored_hdr_reg;
     assign wire_entry_hdr_next = store_wire_entry_hdr
-                                ? realign_separate_data
+                                ? src_install_req[NOC_DATA_W-1 -: WIRE_LOG_ENTRY_HDR_W]
                                 : wire_entry_hdr_reg;
 
     assign op_in_range = (wire_entry_hdr_reg.op_num >= log_start_op_reg) &&
                          (wire_entry_hdr_reg.op_num <= log_last_op);
 
     always_comb begin
+        init_inputs = 1'b0;
         reset_entry_bytes_in = 1'b0;
         incr_entry_bytes_in = 1'b0;
         store_wire_entry_hdr = 1'b0;
@@ -217,6 +229,7 @@ module log_install_uncondense (
         case (state_reg)
             READY: begin
                 divergence_found_next = 1'b0;
+                init_inputs = 1'b1;
 
                 if (src_install_req_val) begin
                     state_next = STORE_IN_ENTRY_HDR;
@@ -238,15 +251,20 @@ module log_install_uncondense (
                 end
             end
             RD_LOG_HDR_MEM: begin
-                install_log_hdr_mem_rd_req_val = op_in_range;
-                if (log_hdr_mem_install_rd_req_rdy) begin
-                    state_next = STORE_LOG_HDR_RD;
+                if (op_in_range) begin
+                    install_log_hdr_mem_rd_req_val = op_in_range;
+                    if (log_hdr_mem_install_rd_req_rdy) begin
+                        state_next = STORE_LOG_HDR_RD;
+                    end
+                end
+                else begin
+                    state_next = CALC_DIVERGENCE;
                 end
             end
             STORE_LOG_HDR_RD: begin
                 if (op_in_range) begin
                     store_mem_entry_hdr = 1'b1;
-                    install_log_hdr_mem_rd_resp_rdy =!'b1;
+                    install_log_hdr_mem_rd_resp_rdy = 1'b1;
                     if (log_hdr_mem_install_rd_resp_val) begin
                         state_next = CALC_DIVERGENCE;
                     end

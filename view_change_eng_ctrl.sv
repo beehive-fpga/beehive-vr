@@ -1,4 +1,6 @@
-module view_change_eng_ctrl (
+module view_change_eng_ctrl 
+import beehive_vr_pkg::*;
+(
      input clk
     ,input rst
     // metadata bus in
@@ -12,7 +14,7 @@ module view_change_eng_ctrl (
 
     // state write
     ,output logic                           vc_vr_state_wr_req
-    ,input  logic                           vc_vr_state_wr_req_rdy
+    ,input  logic                           vr_state_vc_wr_req_rdy
     
     ,output logic                           vc_engine_rdy
 
@@ -29,6 +31,8 @@ module view_change_eng_ctrl (
     ,output logic                           ctrl_datap_store_msg
     ,output logic                           ctrl_datap_store_req
     ,output logic                           ctrl_datap_store_new_state
+    ,output logic                           ctrl_datap_clear_quorum_vec
+    ,output logic                           ctrl_datap_set_quorum_vec
 
     ,output logic                           ctrl_install_start_install
 
@@ -46,8 +50,8 @@ module view_change_eng_ctrl (
         STORE_REQ = 4'd1,
         MSG_TYPE_CHECK = 4'd2,
         HANDLE_START_CHANGE = 4'd3,
-        BROADCAST_START = 4'd4,
-        WAIT_BROADCAST = 4'd5
+        BROADCAST_START_CHANGE = 4'd4,
+        WAIT_BROADCAST = 4'd5,
         CHECK_QUORUM = 4'd7,
         SEND_DO_CHANGE = 4'd8,
         WAIT_DO_CHANGE = 4'd9,
@@ -72,10 +76,16 @@ module view_change_eng_ctrl (
         end
     end
 
+    assign vc_engine_rdy = state_reg == READY;
+
+    assign ctrl_realign_data_last = manage_vc_req_last;
+
     always_comb begin
         ctrl_datap_store_req = 1'b0;
         ctrl_datap_store_msg = 1'b0;
         ctrl_datap_store_new_state = 1'b0;
+        ctrl_datap_clear_quorum_vec = 1'b0;
+        ctrl_datap_set_quorum_vec = 1'b0;
     
         ctrl_install_start_install = 1'b0;
         ctrl_install_rdy = 1'b0;
@@ -83,6 +93,9 @@ module view_change_eng_ctrl (
         ctrl_realign_data_val = 1'b0;
         vc_manage_req_rdy = 1'b0;
         vc_manage_msg_rdy = 1'b0;
+
+        start_broadcast = 1'b0;
+        send_do_change_req = 1'b0;
 
         vc_vr_state_wr_req = 1'b0;
 
@@ -126,7 +139,7 @@ module view_change_eng_ctrl (
                     state_next = READY;
                 end
             end
-            BROADCAST_START: begin
+            BROADCAST_START_CHANGE: begin
                 start_broadcast = 1'b1;
                 state_next = WAIT_BROADCAST;
             end
@@ -173,7 +186,7 @@ module view_change_eng_ctrl (
             end
             WR_STATE: begin
                 vc_vr_state_wr_req = 1'b1;
-                if (vr_state_vc_wr_rdy) begin
+                if (vr_state_vc_wr_req_rdy) begin
                     state_next = READY;
                 end
             end

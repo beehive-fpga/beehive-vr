@@ -2,16 +2,16 @@ module do_change_ctrl (
      input  clk
     ,input  rst
 
-    ,input          send_do_change_req
-    ,output         do_change_rdy
+    ,input  logic   send_do_change_req
+    ,output logic   do_change_rdy
 
-    ,output         init_do_change_state
+    ,output logic   init_do_change_state
     
     ,output logic   src_reader_req_val
     ,input  logic   reader_src_req_rdy
 
-    ,output         decr_leader_calc
-    ,input          leader_found
+    ,output logic   decr_leader_calc
+    ,input  logic   leader_found
 
     ,output logic   store_leader_info
 

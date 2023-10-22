@@ -211,7 +211,7 @@ import beehive_vr_pkg::*;
     
     bsg_mux #(
          .width_p   (1)
-        ,.els_p     (2)
+        ,.els_p     (3)
     ) data_rdy_mux (
          .data_i    ({vc_manage_req_rdy, commit_manage_req_rdy, prep_manage_req_rdy})
         ,.sel_i     (dst_sel)

@@ -174,6 +174,16 @@ import beehive_vr_pkg::*;
     logic                           prep_to_udp_data_last;
     logic                           to_udp_prep_data_rdy;
     
+    logic                           vc_to_udp_meta_val;
+    udp_info                        vc_to_udp_meta_info;
+    logic                           to_udp_vc_meta_rdy;
+
+    logic                           vc_to_udp_data_val;
+    logic   [NOC_DATA_W-1:0]        vc_to_udp_data;
+    logic   [NOC_PADBYTES_W-1:0]    vc_to_udp_data_padbytes;
+    logic                           vc_to_udp_data_last;
+    logic                           to_udp_vc_data_rdy;
+    
     logic                           commit_vr_state_wr_req;
     vr_state                        commit_vr_state_wr_data;
     logic                           vr_state_commit_wr_rdy;
@@ -187,7 +197,7 @@ import beehive_vr_pkg::*;
     logic                           vc_engine_rdy;
     
     logic                           vc_vr_state_wr_req;
-    logic                           vc_vr_state_wr_req_rdy;
+    logic                           vr_state_vc_wr_req_rdy;
     vr_state                        vc_vr_state_wr_req_data;
     
     logic                           config_ram_rd_req_val;
@@ -212,6 +222,14 @@ import beehive_vr_pkg::*;
     log_entry_hdr                   vc_log_hdr_mem_wr_data;
     logic   [LOG_HDR_DEPTH_W-1:0]   vc_log_hdr_mem_wr_addr;
     logic                           log_hdr_mem_vc_wr_rdy;
+    
+    logic                           vc_log_hdr_mem_rd_req_val;
+    logic   [LOG_HDR_DEPTH_W-1:0]   vc_log_hdr_mem_rd_req_addr;
+    logic                           log_hdr_mem_vc_rd_req_rdy;
+
+    logic                           log_hdr_mem_vc_rd_resp_val;
+    log_entry_hdr                   log_hdr_mem_vc_rd_resp_data;
+    logic                           vc_log_hdr_mem_rd_resp_rdy;
 
     logic   [NUM_SRCS-1:0]                      log_hdr_mem_rd_req_vals;
     logic   [NUM_SRCS-1:0][LOG_HDR_DEPTH_W-1:0] log_hdr_mem_rd_req_addrs;
@@ -231,7 +249,7 @@ import beehive_vr_pkg::*;
 
     always_comb begin
         vr_state_commit_wr_rdy = 1'b0;
-        vr_state_vc_wr_rdy = 1'b0;
+        vr_state_vc_wr_req_rdy = 1'b0;
         
         vr_state_next = vr_state_reg;
         if (setup_vr_state_wr_val) begin
@@ -637,27 +655,27 @@ import beehive_vr_pkg::*;
 
     assign log_hdr_mem_rd_req_vals[PREP_SEL] = prep_log_hdr_mem_rd_req_val;
     assign log_hdr_mem_rd_req_addrs[PREP_SEL] = prep_log_hdr_mem_rd_req_addr;
-    assign log_hdr_mem_rd_req_rdy = log_hdr_mem_rd_req_rdys[PREP_SEL];
+    assign log_hdr_mem_prep_rd_req_rdy = log_hdr_mem_rd_req_rdys[PREP_SEL];
 
     assign log_hdr_mem_prep_rd_resp_val = log_hdr_mem_rd_resp_vals[PREP_SEL];
-    assign log_hdr_mem_prep_rd_resp_data = log_hdr_mem_rd_resp_data;
-    assign log_hdr_mem_rd_resp_rdys = prep_log_hdr_mem_rd_resp_rdy;
+    assign log_hdr_mem_prep_rd_resp_data = log_hdr_mem_rd_resp_datas;
+    assign log_hdr_mem_rd_resp_rdys[PREP_SEL] = prep_log_hdr_mem_rd_resp_rdy;
     
     assign log_hdr_mem_rd_req_vals[COMMIT_SEL] = commit_log_hdr_mem_rd_req_val;
     assign log_hdr_mem_rd_req_addrs[COMMIT_SEL] = commit_log_hdr_mem_rd_req_addr;
-    assign log_hdr_mem_rd_req_rdy = log_hdr_mem_rd_req_rdys[COMMIT_SEL];
+    assign log_hdr_mem_commit_rd_req_rdy = log_hdr_mem_rd_req_rdys[COMMIT_SEL];
 
     assign log_hdr_mem_commit_rd_resp_val = log_hdr_mem_rd_resp_vals[COMMIT_SEL];
-    assign log_hdr_mem_commit_rd_resp_data = log_hdr_mem_rd_resp_data;
-    assign log_hdr_mem_rd_resp_rdys = commit_log_hdr_mem_rd_resp_rdy;
+    assign log_hdr_mem_commit_rd_resp_data = log_hdr_mem_rd_resp_datas;
+    assign log_hdr_mem_rd_resp_rdys[COMMIT_SEL] = commit_log_hdr_mem_rd_resp_rdy;
     
     assign log_hdr_mem_rd_req_vals[VC_SEL] = vc_log_hdr_mem_rd_req_val;
     assign log_hdr_mem_rd_req_addrs[VC_SEL] = vc_log_hdr_mem_rd_req_addr;
-    assign log_hdr_mem_rd_req_rdy = log_hdr_mem_rd_req_rdys[VC_SEL];
+    assign log_hdr_mem_vc_rd_req_rdy = log_hdr_mem_rd_req_rdys[VC_SEL];
 
     assign log_hdr_mem_vc_rd_resp_val = log_hdr_mem_rd_resp_vals[VC_SEL];
-    assign log_hdr_mem_vc_rd_resp_data = log_hdr_mem_rd_resp_data;
-    assign log_hdr_mem_rd_resp_rdys = vc_log_hdr_mem_rd_resp_rdy;
+    assign log_hdr_mem_vc_rd_resp_data = log_hdr_mem_rd_resp_datas;
+    assign log_hdr_mem_rd_resp_rdys[VC_SEL] = vc_log_hdr_mem_rd_resp_rdy;
 
     mem_mux_param #(
          .ADDR_W    (LOG_HDR_DEPTH_W    )
@@ -667,13 +685,13 @@ import beehive_vr_pkg::*;
          .clk   (clk    )
         ,.rst   (rst    )
     
-        ,.srcs_rd_req_vals      (srcs_rd_req_vals           )
-        ,.srcs_rd_req_addrs     (srcs_rd_req_addrs          )
-        ,.srcs_rd_req_rdys      (srcs_rd_req_rdys           )
-                                                            
-        ,.srcs_rd_resp_vals     (srcs_rd_resp_vals          )
-        ,.srcs_rd_resp_data     (srcs_rd_resp_data          )
-        ,.srcs_rd_resp_rdys     (srcs_rd_resp_rdys          )
+        ,.srcs_rd_req_vals      (log_hdr_mem_rd_req_vals    )
+        ,.srcs_rd_req_addrs     (log_hdr_mem_rd_req_addrs   )
+        ,.srcs_rd_req_rdys      (log_hdr_mem_rd_req_rdys    )
+
+        ,.srcs_rd_resp_vals     (log_hdr_mem_rd_resp_vals   )
+        ,.srcs_rd_resp_data     (log_hdr_mem_rd_resp_datas  )
+        ,.srcs_rd_resp_rdys     (log_hdr_mem_rd_resp_rdys   )
     
         ,.dst_rd_req_val        (log_hdr_mem_rd_req_val     )
         ,.dst_rd_req_addr       (log_hdr_mem_rd_req_addr    )

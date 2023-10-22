@@ -10,6 +10,11 @@ filesets:
             - commit_eng.sv
             - commit_eng_ctrl.sv
             - commit_eng_datap.sv
+            - do_change_ctrl.sv
+            - log_install_uncondense.sv
+            - log_reader_in_ctrl.sv
+            - log_reader_out_ctrl_uncondense.sv
+            - log_reader_uncondense.sv
             - manage_eng.sv
             - out_merger.sv
             - prepare_clean_log_ctrl.sv
@@ -19,6 +24,9 @@ filesets:
             - prepare_eng_log_ctrl_new.sv
             - req_splitter.sv
             - setup_eng.sv
+            - start_change_broadcast.sv
+            - view_change_eng.sv
+            - view_change_eng_ctrl.sv
         depend:
             - uwcse:beehive:common_inc
             - uwcse:beehive:msgs

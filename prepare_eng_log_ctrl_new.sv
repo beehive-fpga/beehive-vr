@@ -116,6 +116,12 @@ module prepare_eng_log_ctrl (
                     end
                 end
             end
+            DRAIN: begin
+                log_ctrl_realign_rd_rdy = 1'b1;
+                if (realign_log_ctrl_rd_val & realign_log_ctrl_rd_last) begin
+                    data_state_next = READY;
+                end
+            end
             default: begin
                 log_write_done = 'X;
                 prep_log_data_mem_wr_val = 'X;

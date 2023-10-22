@@ -18,7 +18,6 @@ module log_reader_in_ctrl (
     ,output logic                           reader_log_data_mem_rd_resp_rdy
 
     ,output logic                           in_write_hdr_fifo_wr_val
-    ,output logic                           in_write_hdr_wr_entry_hdr
     ,input  logic                           write_hdr_fifo_in_wr_rdy
 
     ,output logic                           store_last_view
@@ -38,11 +37,11 @@ module log_reader_in_ctrl (
 
     typedef enum logic[2:0] {
         READY = 3'd0,
-        READ_HDR = 3'd3, 
-        STORE_HDR = 3'd4,
-        WR_ENTRY_HDR = 3'd5,
-        READ_DATA = 3'd6,
-        STORE_DATA = 3'd6,
+        READ_HDR = 3'd1, 
+        STORE_HDR = 3'd2,
+        WR_ENTRY_HDR = 3'd3,
+        READ_DATA = 3'd4,
+        STORE_DATA = 3'd5,
         WR_FIFO = 3'd6,
         WAIT_OUT = 3'd7,
         UND = 'X
@@ -76,7 +75,6 @@ module log_reader_in_ctrl (
         store_data_line = 1'b0;
 
         in_write_hdr_fifo_wr_val = 1'b0;
-        in_write_hdr_wr_entry_hdr = 1'b0;
 
         incr_in_hdr_rd_addr = 1'b0;
         reset_in_hdr_rd_addr = 1'b0;
@@ -84,7 +82,9 @@ module log_reader_in_ctrl (
         reset_in_data_rd_addr = 1'b0;
         incr_in_data_rd_addr = 1'b0;
 
-        size_pass_next = 1'b0;
+        store_last_view = 1'b0;
+
+        size_pass_next = size_pass_reg;
 
         state_next = state_reg;
         case (state_reg)
@@ -108,8 +108,9 @@ module log_reader_in_ctrl (
                 reader_log_hdr_mem_rd_resp_rdy = 1'b1;
                 reset_in_data_rd_addr = 1'b1;
                 if (log_hdr_mem_reader_rd_resp_val) begin
-                    incr_in_hdr_rd_addr = 1'b1;
                     if (size_pass_reg) begin
+                        incr_log_resp_size = 1'b1;
+                        incr_in_hdr_rd_addr = 1'b1;
                         state_next = READ_HDR;
                         if (last_hdr_in_rd) begin
                             reset_in_hdr_rd_addr = 1'b1;
@@ -118,27 +119,20 @@ module log_reader_in_ctrl (
                         end
                     end
                     else begin
-                        state_next = WR_ENTRY_HDR;
+                        state_next = READ_DATA;
                     end
                 end
             end
-            WR_ENTRY_HDR: begin
-                in_write_hdr_wr_entry_hdr = 1'b1;
-                in_write_hdr_fifo_wr_val = 1'b1;
-                if (write_hdr_fifo_in_wr_rdy) begin
-                    state_next = READ_DATA;
-                end
-            end
             READ_DATA: begin
-                reader_log_hdr_mem_rd_req_val = 1'b1;
-                if (log_hdr_mem_reader_rd_req_rdy) begin
-                    state_next = WR_FIFO;
+                reader_log_data_mem_rd_req_val = 1'b1;
+                if (log_data_mem_reader_rd_req_rdy) begin
+                    state_next = STORE_DATA;
                 end
             end
             STORE_DATA: begin
                 store_data_line = 1'b1;
                 reader_log_data_mem_rd_resp_rdy = 1'b1;
-                if (log_hdr_mem_reader_rd_resp_val) begin
+                if (log_data_mem_reader_rd_resp_val) begin
                     state_next = WR_FIFO;
                 end
             end
@@ -147,6 +141,7 @@ module log_reader_in_ctrl (
                 if (write_hdr_fifo_in_wr_rdy) begin
                     incr_in_data_rd_addr = 1'b1;
                     if (last_data_in_rd) begin
+                        incr_in_hdr_rd_addr = 1'b1;
                         if (last_hdr_in_rd) begin
                             state_next = WAIT_OUT;
                         end
@@ -176,7 +171,6 @@ module log_reader_in_ctrl (
                 store_data_line = 'X;
 
                 in_write_hdr_fifo_wr_val = 'X;
-                in_write_hdr_wr_entry_hdr = 'X;
 
                 incr_in_hdr_rd_addr = 'X;
                 reset_in_hdr_rd_addr = 'X;

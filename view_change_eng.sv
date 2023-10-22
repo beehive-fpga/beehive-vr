@@ -1,7 +1,7 @@
 // FIXME: the multiplexing of the UDP output bus is super janky
 // currently it relies on the fact we only process one message at a time
 // it should probably use a val-ready interface insteadG
-
+`include "packet_defs.vh"
 module view_change_eng 
 import beehive_vr_pkg::*;
 import beehive_udp_msg::*;
@@ -32,7 +32,7 @@ import beehive_udp_msg::*;
     ,input  vr_state                        vr_state_vc_rd_resp_data
 
     ,output logic                           vc_vr_state_wr_req
-    ,input  logic                           vc_vr_state_wr_req_rdy
+    ,input  logic                           vr_state_vc_wr_req_rdy
     ,output vr_state                        vc_vr_state_wr_req_data
 
     ,input  machine_tuple                   our_tuple
@@ -81,11 +81,12 @@ import beehive_udp_msg::*;
     ,output logic                           vc_engine_rdy
 );
 
-    localparam START_CHANGE_PADDING = NOC_DATA_WIDTH - START_VIEW_CHANGE_HDR_W - BEEHIVE_HDR_W;
+    localparam START_CHANGE_PADDING = NOC_DATA_W - START_VIEW_CHANGE_HDR_W - BEEHIVE_HDR_W;
+    localparam LOG_PADBYTES_W = LOG_W_BYTES_W;
 
     typedef struct packed {
-        logic   [`NOC_DATA_WIDTH-1:0]   data;
-        logic   [`NOC_PADBYTES_W-1:0]   padbytes;
+        logic   [NOC_DATA_W-1:0]   data;
+        logic   [NOC_PADBYTES_W-1:0]   padbytes;
     } stream_struct;
     localparam STREAM_STRUCT_W = $bits(stream_struct);
     
@@ -103,8 +104,8 @@ import beehive_udp_msg::*;
     logic                           dst_reader_data_rdy;
     
     logic                           insert_dst_data_val;
-    logic   [`NOC_DATA_WIDTH-1:0]   insert_dst_data;
-    logic   [`NOC_PADBYTES_W-1:0]   insert_dst_data_padbytes;
+    logic   [NOC_DATA_W-1:0]        insert_dst_data;
+    logic   [NOC_PADBYTES_W-1:0]    insert_dst_data_padbytes;
     logic                           insert_dst_data_last;
     logic                           dst_insert_data_rdy;
     
@@ -120,12 +121,11 @@ import beehive_udp_msg::*;
     logic   [`UDP_LENGTH_W-1:0]     payload_size_next;
     
     logic                           do_change_to_udp_data_val;
-    logic   [`NOC_DATA_WIDTH-1:0]   do_change_to_udp_data;
-    logic   [`NOC_PADBYTES_W-1:0]   do_change_to_udp_data_padbytes;
+    logic   [NOC_DATA_W-1:0]        do_change_to_udp_data;
+    logic   [NOC_PADBYTES_W-1:0]    do_change_to_udp_data_padbytes;
     logic                           do_change_to_udp_data_last;
     logic                           to_udp_do_change_data_rdy;
     
-    logic                           reader_dst_data_val;
     logic                           store_do_change_size;
 
     logic                           store_leader_info;
@@ -138,6 +138,9 @@ import beehive_udp_msg::*;
     start_view_hdr                  start_view_hdr_next;
     do_view_change_hdr              do_view_change_hdr_cast;
     beehive_hdr                     beehive_hdr_cast;
+
+    start_view_change_hdr start_view_change_cast;
+    beehive_hdr           start_view_change_hdr_cast;
     
     logic                           start_change_config_ram_rd_req_val;
     logic   [CONFIG_ADDR_W-1:0]     start_change_config_ram_rd_req_addr;
@@ -155,32 +158,23 @@ import beehive_udp_msg::*;
     logic                           to_udp_start_change_meta_rdy;
     
     logic                           start_change_to_udp_data_val;
-    logic   [`NOC_DATA_WIDTH-1:0]   start_change_to_udp_data;
-    logic   [`NOC_PADBYTES_W-1:0]   start_change_to_udp_data_padbytes;
+    logic   [NOC_DATA_W-1:0]        start_change_to_udp_data;
+    logic   [NOC_PADBYTES_W-1:0]    start_change_to_udp_data_padbytes;
     logic                           start_change_to_udp_data_last;
     logic                           to_udp_start_change_data_rdy;
     
     logic   start_broadcast;
     logic   broadcast_rdy;
 
-    logic   start_change_config_ram_rd_req;
-    logic   start_change_config_ram_rd_req_rdy;
-    
-    logic   start_change_to_udp_meta_val;
-    logic   to_udp_start_change_meta_rdy;
-
-    logic   start_change_to_udp_data_val;
-    logic   start_change_to_udp_data_last;
-    logic   to_udp_start_change_data_rdy;
-
     logic   start_change_store_config_ram_rd;
 
     logic   [INT_W-1:0] leader_view_calc_reg;
     logic   [INT_W-1:0] leader_view_calc_next;
 
+    localparam COUNT_W = $clog2(MAX_CLUSTER_SIZE + 1);
     logic   [MAX_CLUSTER_SIZE-1:0]  quorum_reg;
     logic   [MAX_CLUSTER_SIZE-1:0]  quorum_next;
-    logic   [CONFIG_ADDR_W:0]       num_resps;
+    logic   [COUNT_W-1:0]           num_resps;
     
     logic                           ctrl_datap_store_msg;
     logic                           ctrl_datap_store_req;
@@ -190,6 +184,8 @@ import beehive_udp_msg::*;
     logic                           realign_ctrl_data_rdy;
     
     logic                           ctrl_datap_store_new_state;
+    logic                           ctrl_datap_clear_quorum_vec;
+    logic                           ctrl_datap_set_quorum_vec;
 
     logic                           ctrl_install_start_install;
 
@@ -205,8 +201,8 @@ import beehive_udp_msg::*;
     msg_type                        datap_ctrl_msg_type;
     
     logic                           realign_install_data_val;
-    logic   [DATA_W-1:0]            realign_install_data;
-    logic   [DATA_PADBYTES_W-1:0]   realign_install_data_padbytes;
+    logic   [NOC_DATA_W-1:0]        realign_install_data;
+    logic   [NOC_PADBYTES_W-1:0]    realign_install_data_padbytes;
     logic                           realign_install_data_last;
     logic                           install_realign_data_rdy;
     
@@ -242,19 +238,30 @@ import beehive_udp_msg::*;
     assign do_view_change_hdr_cast.view = start_view_change_hdr_reg.view;
     assign do_view_change_hdr_cast.last_norm_view = reader_dst_last_view;
     assign do_view_change_hdr_cast.last_op = vr_state_vc_rd_resp_data.last_op;
-    assign do_view_change_hdr_cast.last_committed = vr_state_vc_rd_resp_data.last_committed;
+    assign do_view_change_hdr_cast.last_committed = vr_state_vc_rd_resp_data.last_commit;
     assign do_view_change_hdr_cast.rep_index = vr_state_vc_rd_resp_data.my_replica_index;
-    assign do_view_change_hdr_cast.byte_count = reader_dst_entries_len + 8;
+    assign do_view_change_hdr_cast.byte_count = reader_dst_entries_len;
   
     // use the clear signal to clear the reg if it's set (hence the not)
     // use the set signal to set a bit based on the replica index
     assign quorum_next = (quorum_reg & {MAX_CLUSTER_SIZE{~ctrl_datap_clear_quorum_vec}}) | (ctrl_datap_set_quorum_vec << start_view_change_hdr_reg.rep_index);
 
-    assign num_resps += quorum_reg;
+    bsg_popcount #(
+        .width_p(MAX_CLUSTER_SIZE)
+    ) resp_count (
+         .i(quorum_reg  )
+        ,.o(num_resps   )
+    );
     assign datap_ctrl_quorum_good = num_resps >= (node_count_reg >> 1);
 
+    assign config_ram_rd_req_val = do_change_config_ram_rd_req_val | start_change_config_ram_rd_req_rdy;
+    assign start_change_config_ram_rd_req_rdy = ~do_change_config_ram_rd_req_val;
 
-    assign replica_info_next = store_leader_info | store_config_ram_rd
+    assign config_ram_rd_req_addr = do_change_config_ram_rd_req_val
+                                ? leader_view_calc_reg
+                                : start_change_config_ram_rd_req_addr;
+
+    assign replica_info_next = store_leader_info | start_change_store_config_ram_rd
                             ? config_ram_rd_resp_data
                             : replica_info_reg;
 
@@ -271,7 +278,7 @@ import beehive_udp_msg::*;
                             : start_view_hdr_reg;
 
     assign leader_view_calc_next = init_do_change_state
-                                ? vr_state_vc_rd_resp_data.curr_view
+                                ? start_view_change_hdr_reg.view
                                 : decr_leader_calc
                                     ? leader_view_calc_reg - node_count_reg
                                     : leader_view_calc_reg;
@@ -312,6 +319,7 @@ import beehive_udp_msg::*;
         ,.vc_manage_req_rdy             (vc_manage_req_rdy              )
                                                                         
         ,.vc_vr_state_wr_req            (vc_vr_state_wr_req             )
+        ,.vr_state_vc_wr_req_rdy        (vr_state_vc_wr_req_rdy         )
     
         ,.vc_engine_rdy                 (vc_engine_rdy                  )
     
@@ -329,6 +337,8 @@ import beehive_udp_msg::*;
         ,.ctrl_datap_store_req          (ctrl_datap_store_req           )
     
         ,.ctrl_datap_store_new_state    (ctrl_datap_store_new_state     )
+        ,.ctrl_datap_clear_quorum_vec   (ctrl_datap_clear_quorum_vec    )
+        ,.ctrl_datap_set_quorum_vec     (ctrl_datap_set_quorum_vec      )
                                                                         
         ,.ctrl_install_start_install    (ctrl_install_start_install     )
                                                                         
@@ -345,33 +355,33 @@ import beehive_udp_msg::*;
          .clk   (clk    )
         ,.rst   (rst    )
 
-        ,.send_do_change_req            (send_do_change_req         )
-        ,.do_change_rdy                 (do_change_rdy              )
+        ,.send_do_change_req            (send_do_change_req                 )
+        ,.do_change_rdy                 (do_change_rdy                      )
                                                                 
-        ,.init_do_change_state          (init_do_change_state       )
+        ,.init_do_change_state          (init_do_change_state               )
                                                                 
-        ,.src_reader_req_val            (src_reader_req_val         )
-        ,.reader_src_req_rdy            (reader_src_req_rdy         )
+        ,.src_reader_req_val            (src_reader_req_val                 )
+        ,.reader_src_req_rdy            (reader_src_req_rdy                 )
                                                                 
-        ,.decr_leader_calc              (decr_leader_calc           )
-        ,.leader_found                  (leader_found               )
+        ,.decr_leader_calc              (decr_leader_calc                   )
+        ,.leader_found                  (leader_found                       )
 
-        ,.store_leader_info             (store_leader_info          )
-        ,.config_ram_rd_req_val         (config_ram_rd_req_val      )
+        ,.store_leader_info             (store_leader_info                  )
+        ,.config_ram_rd_req_val         (do_change_config_ram_rd_req_val    )
 
-        ,.insert_dst_data_val           (insert_dst_data_val        )
-        ,.insert_dst_data_last          (insert_dst_data_last       )
-        ,.dst_insert_data_rdy           (dst_insert_data_rdy        )
+        ,.insert_dst_data_val           (insert_dst_data_val                )
+        ,.insert_dst_data_last          (insert_dst_data_last               )
+        ,.dst_insert_data_rdy           (dst_insert_data_rdy                )
 
-        ,.do_change_to_udp_meta_val     (do_change_to_udp_meta_val  )
-        ,.to_udp_do_change_meta_rdy     (to_udp_do_change_meta_rdy  )
-                                                                    
-        ,.do_change_to_udp_data_val     (do_change_to_udp_data_val  )
-        ,.do_change_to_udp_data_last    (do_change_to_udp_data_last )
-        ,.to_udp_do_change_data_rdy     (to_udp_do_change_data_rdy  )
+        ,.do_change_to_udp_meta_val     (do_change_to_udp_meta_val          )
+        ,.to_udp_do_change_meta_rdy     (to_udp_do_change_meta_rdy          )
+                                                                            
+        ,.do_change_to_udp_data_val     (do_change_to_udp_data_val          )
+        ,.do_change_to_udp_data_last    (do_change_to_udp_data_last         )
+        ,.to_udp_do_change_data_rdy     (to_udp_do_change_data_rdy          )
     
-        ,.reader_dst_data_val           (reader_dst_data_val        )
-        ,.store_do_change_size          (store_do_change_size       )
+        ,.reader_dst_data_val           (reader_dst_data_val                )
+        ,.store_do_change_size          (store_do_change_size               )
     );
 
     log_reader_uncondense reader (
@@ -409,7 +419,7 @@ import beehive_udp_msg::*;
     );
 
     inserter_compile #(
-         .INSERT_W       (BEEHIVE_HDR_BYTES + DO_VIEW_CHANGE_HDR_BYTES)
+         .INSERT_W       (BEEHIVE_HDR_W + DO_VIEW_CHANGE_HDR_W)
         ,.DATA_W         (NOC_DATA_W    )
     ) hdr_insert (
          .clk   (clk    )
@@ -430,7 +440,6 @@ import beehive_udp_msg::*;
         ,.dst_insert_data_rdy       (dst_insert_data_rdy        )
     );
 
-    assign start_change_config_ram_rd_req_rdy = ~do_change_config_ram_rd_req_val;
 
     start_change_broadcast start_change_broadcast (
          .clk   (clk    )
@@ -459,12 +468,9 @@ import beehive_udp_msg::*;
     assign do_change_to_udp_data_padbytes = insert_dst_data_padbytes;
     assign do_change_to_udp_data = insert_dst_data;
 
-    start_view_change_hdr start_view_change_cast;
-    beehive_hdr           start_view_change_hdr;
-
-    assign start_view_change_hdr.frag_num = NONFRAG_MAGIC;
-    assign start_view_change_hdr.msg_type = StartViewChange;
-    assign start_view_change_hdr.msg_len = START_VIEW_CHANGE_HDR_BYTES;
+    assign start_view_change_hdr_cast.frag_num = NONFRAG_MAGIC;
+    assign start_view_change_hdr_cast.msg_type = StartViewChange;
+    assign start_view_change_hdr_cast.msg_len = START_VIEW_CHANGE_HDR_BYTES;
     assign start_view_change_cast.view = start_view_change_hdr_reg.view;
     assign start_view_change_cast.rep_index = vr_state_vc_rd_resp_data.my_replica_index;
     assign start_view_change_cast.last_committed = vr_state_vc_rd_resp_data.last_commit;
@@ -493,7 +499,9 @@ import beehive_udp_msg::*;
     );
 
     
-    log_install_uncondense installer (
+    log_install_uncondense #(
+        .NOC_DATA_W (NOC_DATA_W )
+    ) installer (
          .clk   (clk    )
         ,.rst   (rst    )
 
@@ -569,10 +577,12 @@ import beehive_udp_msg::*;
         new_state_next = new_state_reg;
         if (ctrl_datap_store_new_state) begin
             if (msg_type_reg == StartViewChange) begin
+                new_state_next = vr_state_vc_rd_resp_data;
                 new_state_next.curr_status =  VIEW_CHANGE;
                 new_state_next.curr_view = start_view_change_hdr_reg.view;
             end
             else begin
+                new_state_next = vr_state_vc_rd_resp_data;
                 new_state_next.curr_status = NORMAL;
                 new_state_next.curr_view = start_view_hdr_reg.view;
                 new_state_next.hdr_log_tail = log_install_dst_hdr_log_tail;
@@ -584,8 +594,7 @@ import beehive_udp_msg::*;
  * FIXME: ugly multiplexing
  ********************************************/
 
-    assign start_change_to_udp_data = {start_view_hdr, start_view_change_cast, (START_CHANGE_PADDING){1'b0}};
-    assign start_change_to_udp_data_last = 1'b1;
+    assign start_change_to_udp_data = {start_view_change_hdr_cast, start_view_change_cast, {(START_CHANGE_PADDING){1'b0}}};
     assign start_change_to_udp_data_padbytes = START_CHANGE_PADDING >> 3;
 
     assign vc_to_udp_meta_val = start_change_to_udp_meta_val | do_change_to_udp_meta_val;
@@ -597,7 +606,7 @@ import beehive_udp_msg::*;
     assign vc_to_udp_meta_info.src_port = our_tuple.port_num;
     assign vc_to_udp_meta_info.dst_ip = replica_info_reg.ip_addr;
     assign vc_to_udp_meta_info.dst_port = replica_info_reg.port_num;
-    assign vc_to_udp_meta_info = do_change_to_udp_meta_val
+    assign vc_to_udp_meta_info.data_length = do_change_to_udp_meta_val
                                 ? payload_size_reg
                                 : BEEHIVE_HDR_BYTES + START_VIEW_CHANGE_HDR_BYTES;
 
@@ -610,12 +619,15 @@ import beehive_udp_msg::*;
     assign start_change_udp_out_mux_data.data = start_change_to_udp_data;
     assign start_change_udp_out_mux_data.padbytes = start_change_to_udp_data_padbytes;
 
+    assign vc_to_udp_data = udp_out_mux_dst_data.data;
+    assign vc_to_udp_data_padbytes = udp_out_mux_dst_data.padbytes;
+
     stream_mux #(
          .NUM_SRCS  (2)
         ,.DATA_W    (STREAM_STRUCT_W    )
     ) udp_out_mux (
-         .clk()
-        ,.rst()
+         .clk   (clk    )
+        ,.rst   (rst    )
     
         ,.mux_dst_val  (vc_to_udp_data_val  )
         ,.mux_dst_last (vc_to_udp_data_last )

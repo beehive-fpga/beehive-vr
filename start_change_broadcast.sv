@@ -4,24 +4,24 @@ import beehive_vr_pkg::*;
      input clk
     ,input rst
 
-    ,input  logic   [CONFIG_ADDR_W-1:0] cluster_size
-    ,input  logic   [INT_W-1:0]         my_index
+    ,input  logic   [CONFIG_NODE_CNT_W-1:0] cluster_size
+    ,input  logic   [INT_W-1:0]             my_index
 
-    ,input  logic                       start_broadcast
-    ,output logic                       broadcast_rdy
+    ,input  logic                           start_broadcast
+    ,output logic                           broadcast_rdy
 
-    ,output logic                       config_ram_rd_req
-    ,output logic   [CONFIG_ADDR_W-1:0] config_ram_rd_req_addr
-    ,input  logic                       config_ram_rd_req_rdy
+    ,output logic                           config_ram_rd_req
+    ,output logic   [CONFIG_ADDR_W-1:0]     config_ram_rd_req_addr
+    ,input  logic                           config_ram_rd_req_rdy
     
-    ,output logic                       start_change_to_udp_meta_val
-    ,input  logic                       to_udp_start_change_meta_rdy
+    ,output logic                           start_change_to_udp_meta_val
+    ,input  logic                           to_udp_start_change_meta_rdy
 
-    ,output logic                       start_change_to_udp_data_val
-    ,output logic                       start_change_to_udp_data_last
-    ,input  logic                       to_udp_start_change_data_rdy
+    ,output logic                           start_change_to_udp_data_val
+    ,output logic                           start_change_to_udp_data_last
+    ,input  logic                           to_udp_start_change_data_rdy
 
-    ,output logic                       store_config_ram_rd
+    ,output logic                           store_config_ram_rd
 );
 
     typedef enum logic[2:0] {
@@ -51,6 +51,8 @@ import beehive_vr_pkg::*;
             index_reg <= index_next;
         end
     end
+
+    assign start_change_to_udp_data_last = 1'b1;
 
     assign config_ram_rd_req_addr = index_reg;
 
@@ -102,8 +104,8 @@ import beehive_vr_pkg::*;
             end
             SEND_DATA: begin
                 start_change_to_udp_data_val = 1'b1;
-                incr_index = 1'b1;
                 if (to_udp_start_change_data_rdy) begin
+                    incr_index = 1'b1;
                     if (index_reg == (cluster_size-1)) begin
                         state_next = READY;
                     end

@@ -126,10 +126,21 @@ package beehive_vr_pkg;
     typedef struct packed {
         logic   [INT_W-1:0] clientid;
         logic   [INT_W-1:0] clientreqid;
-        logic   [INT_W-1:0] op_bytes_len
+        logic   [INT_W-1:0] op_bytes_len;
     } request_hdr;
     localparam REQUEST_HDR_W = $bits(request_hdr);
     localparam REQUEST_HDR_BYTES = REQUEST_HDR_W/8;
+
+    typedef struct packed {
+        logic   [INT_W-1:0] total_size;
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] op_num;
+        logic   [INT_W-1:0] log_entry_state;
+        // FIXME: this assumes the hash is never used
+        logic   [INT_W-1:0] hash_bytes_count;
+    } log_reader_wire_hdr;
+    localparam LOG_READER_WIRE_HDR_W = $bits(log_reader_wire_hdr);
+    localparam LOG_READER_WIRE_HDR_BYTES = LOG_READER_WIRE_HDR_W/8;
     
     typedef struct packed {
         logic   [INT_W-1:0] total_size;
@@ -140,6 +151,8 @@ package beehive_vr_pkg;
         logic   [INT_W-1:0] hash_bytes_count;
         request_hdr         request;
     } wire_log_entry_hdr;
+    localparam WIRE_LOG_ENTRY_HDR_W = $bits(wire_log_entry_hdr);
+    localparam WIRE_LOG_ENTRY_HDR_BYTES = WIRE_LOG_ENTRY_HDR_W/8;
     
     typedef struct packed {
         logic   [`IP_ADDR_W-1:0]    ip_addr;

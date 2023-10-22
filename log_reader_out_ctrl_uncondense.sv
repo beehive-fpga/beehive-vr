@@ -61,7 +61,7 @@ module log_reader_out_ctrl_uncondense (
                                        : '0;
                 out_write_hdr_fifo_rd_rdy = dst_reader_data_rdy;
                 if (dst_reader_data_rdy & write_hdr_fifo_out_rd_val) begin
-                    if (reader_dst_data_last) begin
+                    if (write_hdr_fifo_out_rd_data_last) begin
                         out_incr_entry_addr = 1'b1;
                         if (last_entry_out) begin
                             state_next = READY;
