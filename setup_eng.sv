@@ -94,7 +94,7 @@ import packet_struct_pkg::*;
     assign wr_node_count = cluster_config.node_cnt;
     assign wr_our_tuple = cluster_config.our_tuple;
 
-    assign setup_vr_state_wr_data = src_setup_req[NOC_DATA_W-BEEHIVE_HDR_W-1 -: VR_STATE_W];
+    assign setup_vr_state_wr_data = src_setup_req[NOC_DATA_W-1 -: VR_STATE_W];
     assign info_next = store_info
                     ? src_setup_pkt_info
                     : info_reg;

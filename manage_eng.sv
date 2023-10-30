@@ -18,6 +18,16 @@ import beehive_vr_pkg::*;
     ,input  logic                           fr_udp_manage_data_last
     ,input  logic   [NOC_PADBYTES_W-1:0]    fr_udp_manage_data_padbytes
     ,output logic                           manage_fr_udp_data_rdy
+    
+    ,output logic                           manage_setup_msg_val
+    ,output udp_info                        manage_setup_pkt_info
+    ,input  logic                           setup_manage_msg_rdy
+
+    ,output logic                           manage_setup_req_val
+    ,output logic   [NOC_DATA_W-1:0]        manage_setup_req
+    ,output logic                           manage_setup_req_last
+    ,output logic   [NOC_PADBYTES_W-1:0]    manage_setup_req_padbytes
+    ,input  logic                           setup_manage_req_rdy
 
     ,output logic                           manage_prep_msg_val
     ,output udp_info                        manage_prep_pkt_info
@@ -59,6 +69,7 @@ import beehive_vr_pkg::*;
         PREPARE = 2'd0,
         COMMIT = 2'd1,
         VIEW_CHANGE = 2'd2,
+        SETUP = 2'd3,
         NONE = 'X
     } dst_sel_e;
 
@@ -135,6 +146,11 @@ import beehive_vr_pkg::*;
     end
 
     assign manage_vc_msg_type = msg_hdr_next.msg_type;
+    
+    assign manage_setup_pkt_info = manage_dst_pkt_info;
+    assign manage_setup_req = manage_dst_req;
+    assign manage_setup_req_padbytes = manage_dst_req_padbytes;
+    assign manage_setup_req_last = manage_dst_req_last;
 
     assign manage_prep_pkt_info = manage_dst_pkt_info;
     assign manage_prep_req = manage_dst_req;
@@ -180,40 +196,42 @@ import beehive_vr_pkg::*;
                         ? COMMIT
                         : (msg_hdr_next.msg_type == StartViewChange) || (msg_hdr_next.msg_type == StartView)
                             ? VIEW_CHANGE
-                            : NONE;
+                            : msg_hdr_next.msg_type == SetupBeehive
+                                ? SETUP
+                                : NONE;
 
     demux #(
-         .NUM_OUTPUTS   (3  )
+         .NUM_OUTPUTS   (4  )
         ,.INPUT_WIDTH   (1  )
     ) meta_val_demux (
          .input_sel     (dst_sel            )
         ,.data_input    (manage_dst_msg_val )
-        ,.data_outputs  ({manage_vc_msg_val, manage_commit_msg_val, manage_prep_msg_val})
+        ,.data_outputs  ({manage_setup_msg_val, manage_vc_msg_val, manage_commit_msg_val, manage_prep_msg_val})
     );
     
     demux #(
-         .NUM_OUTPUTS   (3  )
+         .NUM_OUTPUTS   (4  )
         ,.INPUT_WIDTH   (1  )
     ) data_val_demux (
          .input_sel     (dst_sel            )
         ,.data_input    (manage_dst_req_val )
-        ,.data_outputs  ({manage_vc_req_val, manage_commit_req_val, manage_prep_req_val})
+        ,.data_outputs  ({manage_setup_req_val, manage_vc_req_val, manage_commit_req_val, manage_prep_req_val})
     );
 
     bsg_mux #(
          .width_p   (1)
-        ,.els_p     (3)
+        ,.els_p     (4)
     ) meta_rdy_mux (
-         .data_i    ({vc_manage_msg_rdy, commit_manage_msg_rdy, prep_manage_msg_rdy})
+         .data_i    ({setup_manage_msg_rdy, vc_manage_msg_rdy, commit_manage_msg_rdy, prep_manage_msg_rdy})
         ,.sel_i     (dst_sel)
         ,.data_o    (dst_manage_msg_rdy)
     );
     
     bsg_mux #(
          .width_p   (1)
-        ,.els_p     (3)
+        ,.els_p     (4)
     ) data_rdy_mux (
-         .data_i    ({vc_manage_req_rdy, commit_manage_req_rdy, prep_manage_req_rdy})
+         .data_i    ({setup_manage_req_rdy, vc_manage_req_rdy, commit_manage_req_rdy, prep_manage_req_rdy})
         ,.sel_i     (dst_sel)
         ,.data_o    (dst_manage_req_rdy)
     );

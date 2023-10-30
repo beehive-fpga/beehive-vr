@@ -34,6 +34,16 @@ import beehive_vr_pkg::*;
     localparam COMMIT_SEL = 1;
     localparam VC_SEL = 2;
     
+    logic                           manage_setup_msg_val;
+    udp_info                        manage_setup_pkt_info;
+    logic                           setup_manage_msg_rdy;
+
+    logic                           manage_setup_req_val;
+    logic   [NOC_DATA_W-1:0]        manage_setup_req;
+    logic                           manage_setup_req_last;
+    logic   [NOC_PADBYTES_W-1:0]    manage_setup_req_padbytes;
+    logic                           setup_manage_req_rdy;
+    
     logic                           manage_prep_msg_val;
     udp_info                        manage_prep_pkt_info;
     logic                           prep_manage_msg_rdy;
@@ -85,26 +95,6 @@ import beehive_vr_pkg::*;
     log_entry_hdr                   commit_log_hdr_mem_wr_data;
     logic   [LOG_HDR_DEPTH_W-1:0]   commit_log_hdr_mem_wr_addr;
     logic                           log_hdr_mem_commit_wr_rdy;
-    
-    logic                           splitter_setup_meta_val;
-    udp_info                        splitter_setup_meta_info;
-    logic                           setup_splitter_meta_rdy;
-
-    logic                           splitter_setup_data_val;
-    logic   [NOC_DATA_W-1:0]        splitter_setup_data;
-    logic                           splitter_setup_data_last;
-    logic   [NOC_PADBYTES_W-1:0]    splitter_setup_data_padbytes;
-    logic                           setup_splitter_data_rdy;
-    
-    logic                           splitter_manage_meta_val;
-    udp_info                        splitter_manage_meta_info;
-    logic                           manage_splitter_meta_rdy;
-
-    logic                           splitter_manage_data_val;
-    logic   [NOC_DATA_W-1:0]        splitter_manage_data;
-    logic                           splitter_manage_data_last;
-    logic   [NOC_PADBYTES_W-1:0]    splitter_manage_data_padbytes;
-    logic                           manage_splitter_data_rdy;
     
     logic                           prep_log_hdr_mem_wr_val;
     log_entry_hdr                   prep_log_hdr_mem_wr_data;
@@ -268,49 +258,12 @@ import beehive_vr_pkg::*;
         end
     end
 
-    req_splitter #(
-         .NOC_DATA_W        (NOC_DATA_W )
-    ) req_splitter (
-         .clk   (clk    )
-        ,.rst   (rst    )
-
-        ,.fr_udp_beehive_vr_meta_val        (fr_udp_beehive_vr_meta_val         )
-        ,.fr_udp_beehive_vr_meta_info       (fr_udp_beehive_vr_meta_info        )
-        ,.beehive_vr_fr_udp_meta_rdy        (beehive_vr_fr_udp_meta_rdy         )
-                                                                                
-        ,.fr_udp_beehive_vr_data_val        (fr_udp_beehive_vr_data_val         )
-        ,.fr_udp_beehive_vr_data            (fr_udp_beehive_vr_data             )
-        ,.fr_udp_beehive_vr_data_last       (fr_udp_beehive_vr_data_last        )
-        ,.fr_udp_beehive_vr_data_padbytes   (fr_udp_beehive_vr_data_padbytes    )
-        ,.beehive_vr_fr_udp_data_rdy        (beehive_vr_fr_udp_data_rdy         )
-                                                                                
-        ,.splitter_setup_meta_val           (splitter_setup_meta_val            )
-        ,.splitter_setup_meta_info          (splitter_setup_meta_info           )
-        ,.setup_splitter_meta_rdy           (setup_splitter_meta_rdy            )
-                                                                                
-        ,.splitter_setup_data_val           (splitter_setup_data_val            )
-        ,.splitter_setup_data               (splitter_setup_data                )
-        ,.splitter_setup_data_last          (splitter_setup_data_last           )
-        ,.splitter_setup_data_padbytes      (splitter_setup_data_padbytes       )
-        ,.setup_splitter_data_rdy           (setup_splitter_data_rdy            )
-                                                                                
-        ,.splitter_manage_meta_val          (splitter_manage_meta_val           )
-        ,.splitter_manage_meta_info         (splitter_manage_meta_info          )
-        ,.manage_splitter_meta_rdy          (manage_splitter_meta_rdy           )
-                                                                                
-        ,.splitter_manage_data_val          (splitter_manage_data_val           )
-        ,.splitter_manage_data              (splitter_manage_data               )
-        ,.splitter_manage_data_last         (splitter_manage_data_last          )
-        ,.splitter_manage_data_padbytes     (splitter_manage_data_padbytes      )
-        ,.manage_splitter_data_rdy          (manage_splitter_data_rdy           )
-    );
-
     out_merger #(
-         .NOC_DATA_W    (NOC_DATA_W )
-    ) out_merger (
+     .NOC_DATA_W    (NOC_DATA_W )
+    ) merger (
          .clk   (clk    )
         ,.rst   (rst    )
-
+        
         ,.setup_to_udp_meta_val         (setup_to_udp_meta_val      )
         ,.setup_to_udp_meta_info        (setup_to_udp_meta_info     )
         ,.to_udp_setup_meta_rdy         (to_udp_setup_meta_rdy      )
@@ -330,7 +283,7 @@ import beehive_vr_pkg::*;
         ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes  )
         ,.prep_to_udp_data_last         (prep_to_udp_data_last      )
         ,.to_udp_prep_data_rdy          (to_udp_prep_data_rdy       )
-    
+                                                                    
         ,.vc_to_udp_meta_val            (vc_to_udp_meta_val         )
         ,.vc_to_udp_meta_info           (vc_to_udp_meta_info        )
         ,.to_udp_vc_meta_rdy            (to_udp_vc_meta_rdy         )
@@ -340,11 +293,11 @@ import beehive_vr_pkg::*;
         ,.vc_to_udp_data_padbytes       (vc_to_udp_data_padbytes    )
         ,.vc_to_udp_data_last           (vc_to_udp_data_last        )
         ,.to_udp_vc_data_rdy            (to_udp_vc_data_rdy         )
-
+    
         ,.merger_dst_meta_val           (beehive_vr_to_udp_meta_val )
         ,.merger_dst_meta_info          (beehive_vr_to_udp_meta_info)
         ,.dst_merger_meta_rdy           (to_udp_beehive_vr_meta_rdy )
-
+    
         ,.merger_dst_data_val           (beehive_vr_to_udp_data_val )
         ,.merger_dst_data               (beehive_vr_to_udp_data     )
         ,.merger_dst_data_padbytes      ()
@@ -358,41 +311,41 @@ import beehive_vr_pkg::*;
          .clk   (clk    )
         ,.rst   (rst    )
     
-        ,.src_setup_msg_val             (splitter_setup_meta_val        )
-        ,.src_setup_pkt_info            (splitter_setup_meta_info       )
-        ,.setup_src_msg_rdy             (setup_splitter_meta_rdy        )
+        ,.src_setup_msg_val             (manage_setup_msg_val       )
+        ,.src_setup_pkt_info            (manage_setup_pkt_info      )
+        ,.setup_src_msg_rdy             (setup_manage_msg_rdy       )
     
-        ,.src_setup_req_val             (splitter_setup_data_val        )
-        ,.src_setup_req                 (splitter_setup_data            )
-        ,.src_setup_req_last            (splitter_setup_data_last       )
-        ,.src_setup_req_padbytes        (splitter_setup_data_padbytes   )
-        ,.setup_src_req_rdy             (setup_splitter_data_rdy        )
+        ,.src_setup_req_val             (manage_setup_req_val       )
+        ,.src_setup_req                 (manage_setup_req           )
+        ,.src_setup_req_last            (manage_setup_req_last      )
+        ,.src_setup_req_padbytes        (manage_setup_req_padbytes  )
+        ,.setup_src_req_rdy             (setup_manage_req_rdy       )
     
-        ,.setup_vr_state_wr_val         (setup_vr_state_wr_val          )
-        ,.setup_vr_state_wr_data        (setup_vr_state_wr_data         )
+        ,.setup_vr_state_wr_val         (setup_vr_state_wr_val      )
+        ,.setup_vr_state_wr_data        (setup_vr_state_wr_data     )
     
-        ,.setup_to_udp_meta_val         (setup_to_udp_meta_val          )
-        ,.setup_to_udp_meta_info        (setup_to_udp_meta_info         )
-        ,.to_udp_setup_meta_rdy         (to_udp_setup_meta_rdy          )
-                                                                        
-        ,.setup_to_udp_data_val         (setup_to_udp_data_val          )
-        ,.setup_to_udp_data             (setup_to_udp_data              )
-        ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbytes     )
-        ,.setup_to_udp_data_last        (setup_to_udp_data_last         )
-        ,.to_udp_setup_data_rdy         (to_udp_setup_data_rdy          )
+        ,.setup_to_udp_meta_val         (setup_to_udp_meta_val      )
+        ,.setup_to_udp_meta_info        (setup_to_udp_meta_info     )
+        ,.to_udp_setup_meta_rdy         (to_udp_setup_meta_rdy      )
+                                                                         
+        ,.setup_to_udp_data_val         (setup_to_udp_data_val      )
+        ,.setup_to_udp_data             (setup_to_udp_data          )
+        ,.setup_to_udp_data_padbytes    (setup_to_udp_data_padbytes )
+        ,.setup_to_udp_data_last        (setup_to_udp_data_last     )
+        ,.to_udp_setup_data_rdy         (to_udp_setup_data_rdy      )
     
-        ,.wr_config_val                 (wr_config_val                  )
-        ,.wr_node_count                 (wr_node_count                  )
-        ,.wr_our_tuple                  (wr_our_tuple                   )
+        ,.wr_config_val                 (wr_config_val              )
+        ,.wr_node_count                 (wr_node_count              )
+        ,.wr_our_tuple                  (wr_our_tuple               )
     
-        ,.node_count                    (node_count_reg                 )
+        ,.node_count                    (node_count_reg             )
     
-        ,.wr_machine_data_val           (wr_machine_data_val            )
-        ,.wr_machine_data               (wr_machine_data                )
-        ,.wr_machine_data_addr          (wr_machine_data_addr           )
-        ,.wr_machine_data_rdy           (1'b1)
+        ,.wr_machine_data_val           (wr_machine_data_val        )
+        ,.wr_machine_data               (wr_machine_data            )
+        ,.wr_machine_data_addr          (wr_machine_data_addr       )
+        ,.wr_machine_data_rdy           (1'b1                       )
 
-        ,.setup_eng_rdy                 (setup_eng_rdy                  )
+        ,.setup_eng_rdy                 (setup_eng_rdy              )
     );
 
 
@@ -402,48 +355,58 @@ import beehive_vr_pkg::*;
          .clk   (clk    )
         ,.rst   (rst    )
         
-        ,.fr_udp_manage_meta_val        (splitter_manage_meta_val       )
-        ,.fr_udp_manage_meta_info       (splitter_manage_meta_info      )
-        ,.manage_fr_udp_meta_rdy        (manage_splitter_meta_rdy       )
+        ,.fr_udp_manage_meta_val        (fr_udp_beehive_vr_meta_val         )
+        ,.fr_udp_manage_meta_info       (fr_udp_beehive_vr_meta_info        )
+        ,.manage_fr_udp_meta_rdy        (beehive_vr_fr_udp_meta_rdy         )
                                          
-        ,.fr_udp_manage_data_val        (splitter_manage_data_val       )
-        ,.fr_udp_manage_data            (splitter_manage_data           )
-        ,.fr_udp_manage_data_last       (splitter_manage_data_last      )
-        ,.fr_udp_manage_data_padbytes   (splitter_manage_data_padbytes  )
-        ,.manage_fr_udp_data_rdy        (manage_splitter_data_rdy       )
+        ,.fr_udp_manage_data_val        (fr_udp_beehive_vr_data_val         )
+        ,.fr_udp_manage_data            (fr_udp_beehive_vr_data             )
+        ,.fr_udp_manage_data_last       (fr_udp_beehive_vr_data_last        )
+        ,.fr_udp_manage_data_padbytes   (fr_udp_beehive_vr_data_padbytes    )
+        ,.manage_fr_udp_data_rdy        (beehive_vr_fr_udp_data_rdy         )
+
+        ,.manage_setup_msg_val          (manage_setup_msg_val               )
+        ,.manage_setup_pkt_info         (manage_setup_pkt_info              )
+        ,.setup_manage_msg_rdy          (setup_manage_msg_rdy               )
+                                                                            
+        ,.manage_setup_req_val          (manage_setup_req_val               )
+        ,.manage_setup_req              (manage_setup_req                   )
+        ,.manage_setup_req_last         (manage_setup_req_last              )
+        ,.manage_setup_req_padbytes     (manage_setup_req_padbytes          )
+        ,.setup_manage_req_rdy          (setup_manage_req_rdy               )
     
-        ,.manage_prep_msg_val           (manage_prep_msg_val            )
-        ,.manage_prep_pkt_info          (manage_prep_pkt_info           )
-        ,.prep_manage_msg_rdy           (prep_manage_msg_rdy            )
-                                                                        
-        ,.manage_prep_req_val           (manage_prep_req_val            )
-        ,.manage_prep_req               (manage_prep_req                )
-        ,.manage_prep_req_last          (manage_prep_req_last           )
-        ,.manage_prep_req_padbytes      (manage_prep_req_padbytes       )
-        ,.prep_manage_req_rdy           (prep_manage_req_rdy            )
-                                                                        
-        ,.manage_commit_msg_val         (manage_commit_msg_val          )
-        ,.manage_commit_pkt_info        (manage_commit_pkt_info         )
-        ,.commit_manage_msg_rdy         (commit_manage_msg_rdy          )
-                                                                        
-        ,.manage_commit_req_val         (manage_commit_req_val          )
-        ,.manage_commit_req             (manage_commit_req              )
-        ,.manage_commit_req_last        (manage_commit_req_last         )
-        ,.manage_commit_req_padbytes    (manage_commit_req_padbytes     )
-        ,.commit_manage_req_rdy         (commit_manage_req_rdy          )
+        ,.manage_prep_msg_val           (manage_prep_msg_val                )
+        ,.manage_prep_pkt_info          (manage_prep_pkt_info               )
+        ,.prep_manage_msg_rdy           (prep_manage_msg_rdy                )
+                                                                            
+        ,.manage_prep_req_val           (manage_prep_req_val                )
+        ,.manage_prep_req               (manage_prep_req                    )
+        ,.manage_prep_req_last          (manage_prep_req_last               )
+        ,.manage_prep_req_padbytes      (manage_prep_req_padbytes           )
+        ,.prep_manage_req_rdy           (prep_manage_req_rdy                )
+                                                                            
+        ,.manage_commit_msg_val         (manage_commit_msg_val              )
+        ,.manage_commit_pkt_info        (manage_commit_pkt_info             )
+        ,.commit_manage_msg_rdy         (commit_manage_msg_rdy              )
+                                                                            
+        ,.manage_commit_req_val         (manage_commit_req_val              )
+        ,.manage_commit_req             (manage_commit_req                  )
+        ,.manage_commit_req_last        (manage_commit_req_last             )
+        ,.manage_commit_req_padbytes    (manage_commit_req_padbytes         )
+        ,.commit_manage_req_rdy         (commit_manage_req_rdy              )
 
-        ,.manage_vc_msg_val             (manage_vc_msg_val              )
-        ,.manage_vc_pkt_info            (manage_vc_pkt_info             )
-        ,.vc_manage_msg_rdy             (vc_manage_msg_rdy              )
-                                                                        
-        ,.manage_vc_req_val             (manage_vc_req_val              )
-        ,.manage_vc_msg_type            (manage_vc_msg_type             )
-        ,.manage_vc_req                 (manage_vc_req                  )
-        ,.manage_vc_req_last            (manage_vc_req_last             )
-        ,.manage_vc_req_padbytes        (manage_vc_req_padbytes         )
-        ,.vc_manage_req_rdy             (vc_manage_req_rdy              )
+        ,.manage_vc_msg_val             (manage_vc_msg_val                  )
+        ,.manage_vc_pkt_info            (manage_vc_pkt_info                 )
+        ,.vc_manage_msg_rdy             (vc_manage_msg_rdy                  )
+                                                                            
+        ,.manage_vc_req_val             (manage_vc_req_val                  )
+        ,.manage_vc_msg_type            (manage_vc_msg_type                 )
+        ,.manage_vc_req                 (manage_vc_req                      )
+        ,.manage_vc_req_last            (manage_vc_req_last                 )
+        ,.manage_vc_req_padbytes        (manage_vc_req_padbytes             )
+        ,.vc_manage_req_rdy             (vc_manage_req_rdy                  )
 
-        ,.all_eng_rdy                   (all_eng_rdy                    )
+        ,.all_eng_rdy                   (all_eng_rdy                        )
     );
 
     prepare_eng #(
