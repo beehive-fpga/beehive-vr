@@ -16,6 +16,7 @@ import beehive_udp_msg::*;
 
     // data bus in
     ,input  logic                           manage_prep_req_val
+    ,input  msg_type                        manage_prep_msg_type
     ,input  logic   [NOC_DATA_W-1:0]        manage_prep_req
     ,input  logic                           manage_prep_req_last
     ,input  logic   [NOC_PADBYTES_W-1:0]    manage_prep_req_padbytes
@@ -61,6 +62,8 @@ import beehive_udp_msg::*;
 );
 
     logic                           ctrl_datap_store_info;
+    logic                           ctrl_datap_store_resp;
+    logic                           datap_ctrl_msg_is_validate;
     logic                           datap_ctrl_prep_ok;
     logic                           datap_ctrl_log_has_space;
 
@@ -108,6 +111,7 @@ import beehive_udp_msg::*;
         ,.manage_prep_pkt_info          (manage_prep_pkt_info           )
                                                                         
         ,.manage_prep_req               (manage_prep_req                )
+        ,.manage_prep_msg_type          (manage_prep_msg_type           )
                                                                         
         ,.vr_state_prep_rd_resp_data    (vr_state_prep_rd_resp_data     )
                                                                         
@@ -129,11 +133,13 @@ import beehive_udp_msg::*;
         ,.prep_to_udp_data_padbytes     (prep_to_udp_data_padbytes      )
                                                                         
         ,.ctrl_datap_store_info         (ctrl_datap_store_info          )
+        ,.ctrl_datap_store_resp         (ctrl_datap_store_resp          )
         ,.log_ctrl_datap_incr_wr_addr   (log_ctrl_datap_incr_wr_addr    )
         ,.clean_ctrl_datap_store_hdr    (clean_ctrl_datap_store_hdr     )
                                                                         
         ,.datap_ctrl_prep_ok            (datap_ctrl_prep_ok             )
         ,.datap_ctrl_log_has_space      (datap_ctrl_log_has_space       )
+        ,.datap_ctrl_msg_is_validate    (datap_ctrl_msg_is_validate     )
     );
 
     prepare_eng_log_ctrl log_ctrl (
@@ -171,6 +177,8 @@ import beehive_udp_msg::*;
         ,.prep_vr_state_wr_req      (prep_vr_state_wr_req       )
 
         ,.ctrl_datap_store_info     (ctrl_datap_store_info      )
+        ,.ctrl_datap_store_resp     (ctrl_datap_store_resp      )
+        ,.datap_ctrl_msg_is_validate(datap_ctrl_msg_is_validate )
         ,.datap_ctrl_prep_ok        (datap_ctrl_prep_ok         )
         ,.datap_ctrl_log_has_space  (datap_ctrl_log_has_space   )
 

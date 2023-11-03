@@ -16,6 +16,7 @@ import beehive_vr_pkg::*;
 
     // data bus in
     ,input  logic   [NOC_DATA_W-1:0]        manage_prep_req
+    ,input  msg_type                        manage_prep_msg_type
 
     // state read
     ,input  vr_state                        vr_state_prep_rd_resp_data
@@ -39,24 +40,39 @@ import beehive_vr_pkg::*;
     ,output logic   [NOC_PADBYTES_W-1:0]    prep_to_udp_data_padbytes
     
     ,input  logic                           ctrl_datap_store_info 
+    ,input  logic                           ctrl_datap_store_resp
     ,input  logic                           log_ctrl_datap_incr_wr_addr
     ,input  logic                           clean_ctrl_datap_store_hdr
 
     ,output logic                           datap_ctrl_prep_ok
     ,output logic                           datap_ctrl_log_has_space
+    ,output logic                           datap_ctrl_msg_is_validate
     
 );
     localparam PREP_OK_PADDING = NOC_DATA_W - PREPARE_OK_HDR_W - BEEHIVE_HDR_W;
+    localparam VALIDATE_REPLY_PADDING = NOC_DATA_W - BEEHIVE_HDR_W - VALIDATE_REPLY_HDR_W;
     localparam NOC_DATA_BYTES = NOC_DATA_W/8;
 
     udp_info    udp_info_reg;
     udp_info    udp_info_next;
 
+    msg_type    msg_type_reg;
+    msg_type    msg_type_next;
+
+    validate_req_hdr validate_req_hdr_reg;
+    validate_req_hdr validate_req_hdr_next;
+
+    logic           validate_ok;
+
     prepare_msg_hdr prepare_hdr_reg;
     prepare_msg_hdr prepare_hdr_next;
     
     prepare_ok_hdr  prepare_ok_hdr_cast;
+    validate_reply_hdr  validate_reply_hdr_cast;
     beehive_hdr     beehive_hdr_cast;
+
+    logic   [NOC_DATA_W-1:0]    resp_line_reg;
+    logic   [NOC_DATA_W-1:0]    resp_line_next;
 
     logic   [INT_W-1:0] entry_len_calc;
     logic   [LOG_DEPTH_W:0]   log_entry_line_cnt_reg;
@@ -82,6 +98,9 @@ import beehive_vr_pkg::*;
         wr_addr_reg <= wr_addr_next;
         entry_hdr_reg <= entry_hdr_next;
         log_entry_line_cnt_reg <= log_entry_line_cnt_next;
+        msg_type_reg <= msg_type_next;
+        validate_req_hdr_reg <= validate_req_hdr_next;
+        resp_line_reg <= resp_line_next;
     end
 
     assign log_entry_offset = prepare_hdr_reg.clean_up_to - vr_state_prep_rd_resp_data.first_log_op;
@@ -117,12 +136,22 @@ import beehive_vr_pkg::*;
     assign prepare_hdr_next = ctrl_datap_store_info
                                 ? manage_prep_req[NOC_DATA_W-1 -: PREPARE_MSG_HDR_W]
                                 : prepare_hdr_reg;
+    assign validate_req_hdr_next = ctrl_datap_store_info 
+                                ? manage_prep_req[NOC_DATA_W-1 -: VALIDATE_REQ_HDR_W]
+                                : validate_req_hdr_reg;
+    assign msg_type_next = ctrl_datap_store_info
+                        ? manage_prep_msg_type
+                        : msg_type_reg;
+
+    assign datap_ctrl_msg_is_validate = msg_type_reg == ValidateReadRequest;
 
     // the output from the manage module subtracts off the Beehive header
     assign entry_len_calc = udp_info_next.data_length - PREPARE_HDR_BYTES;
     
     assign datap_ctrl_prep_ok = (prepare_hdr_reg.view == vr_state_prep_rd_resp_data.curr_view)
                             && (prepare_hdr_reg.opnum == vr_state_prep_rd_resp_data.last_op + 1'b1);
+
+    assign validate_ok = validate_req_hdr_reg.view == vr_state_prep_rd_resp_data.curr_view;
 
     assign space_used = vr_state_prep_rd_resp_data.data_log_tail - vr_state_prep_rd_resp_data.data_log_head;
     assign space_left = {1'b1, {(LOG_DEPTH_W){1'b0}}} - space_used;
@@ -138,24 +167,50 @@ import beehive_vr_pkg::*;
                               == vr_state_prep_rd_resp_data.hdr_log_head[LOG_HDR_DEPTH_W-1:0]);
     assign datap_ctrl_log_has_space = (space_left >= log_entry_line_cnt_reg) && (~hdr_log_full);
 
-    logic   [PREP_OK_PADDING-1:0] padding;
-    assign padding = {(PREP_OK_PADDING){1'b0}};
-    assign prep_to_udp_data = {beehive_hdr_cast, prepare_ok_hdr_cast, padding};
-    assign prep_to_udp_data_padbytes = PREP_OK_PADDING >> 3;
+    assign prep_to_udp_data = resp_line_reg;
+    assign prep_to_udp_data_padbytes = datap_ctrl_msg_is_validate
+                                    ? VALIDATE_REPLY_PADDING >> 3
+                                    : PREP_OK_PADDING >> 3;
+
+    assign resp_line_next = ctrl_datap_store_resp
+                ? datap_ctrl_msg_is_validate
+                    ? {beehive_hdr_cast, validate_reply_hdr_cast, {(VALIDATE_REPLY_PADDING){1'b0}}}
+                    : {beehive_hdr_cast, prepare_ok_hdr_cast, {(PREP_OK_PADDING){1'b0}}}
+                : resp_line_reg;
 
     always_comb begin
         beehive_hdr_cast = '0;
         beehive_hdr_cast.frag_num = NONFRAG_MAGIC;
-        beehive_hdr_cast.msg_type = PrepareOK;
-        beehive_hdr_cast.msg_len = PREPARE_OK_HDR_BYTES;
+        beehive_hdr_cast.msg_type = msg_type_reg == Prepare
+                                    ? PrepareOK
+                                    : ValidateReadReply;
+        beehive_hdr_cast.msg_len = msg_type_reg == Prepare
+                                    ? PREPARE_OK_HDR_BYTES
+                                    : VALIDATE_REPLY_HDR_BYTES;
+    end
+
+    always_comb begin
+        validate_reply_hdr_cast = '0;
+        validate_reply_hdr_cast.isValid = {{(BOOL_W-1){1'b0}}, validate_ok};
+        validate_reply_hdr_cast.clientid = validate_req_hdr_reg.clientid;
+        validate_reply_hdr_cast.clientreqid = validate_req_hdr_reg.clientreqid;
+        validate_reply_hdr_cast.rep_index = vr_state_prep_rd_resp_data.my_replica_index;
     end
 
     always_comb begin
         prepare_ok_hdr_cast = '0;
-        prepare_ok_hdr_cast.view = prepare_hdr_reg.view;
-        prepare_ok_hdr_cast.opnum = prepare_hdr_reg.opnum;
-        prepare_ok_hdr_cast.rep_index = vr_state_prep_rd_resp_data.my_replica_index;
-        prepare_ok_hdr_cast.last_committed = vr_state_prep_rd_resp_data.last_commit;
+        if (datap_ctrl_prep_ok) begin
+            prepare_ok_hdr_cast.view = prepare_hdr_reg.view;
+            prepare_ok_hdr_cast.opnum = prepare_hdr_reg.opnum;
+            prepare_ok_hdr_cast.rep_index = vr_state_prep_rd_resp_data.my_replica_index;
+            prepare_ok_hdr_cast.last_committed = vr_state_prep_rd_resp_data.last_commit;
+        end
+        else begin
+            prepare_ok_hdr_cast.view = vr_state_prep_rd_resp_data.curr_view;
+            prepare_ok_hdr_cast.opnum = vr_state_prep_rd_resp_data.last_op;
+            prepare_ok_hdr_cast.rep_index = vr_state_prep_rd_resp_data.my_replica_index;
+            prepare_ok_hdr_cast.last_committed = vr_state_prep_rd_resp_data.last_commit;
+        end
     end
 
     always_comb begin
@@ -165,7 +220,9 @@ import beehive_vr_pkg::*;
         prep_to_udp_meta_info.dst_ip = udp_info_reg.src_ip;
         prep_to_udp_meta_info.src_port = udp_info_reg.dst_port;
         prep_to_udp_meta_info.dst_port = udp_info_reg.src_port;
-        prep_to_udp_meta_info.data_length = PREPARE_OK_HDR_BYTES + BEEHIVE_HDR_BYTES; 
+        prep_to_udp_meta_info.data_length = msg_type_reg == Prepare
+                                        ? PREPARE_OK_HDR_BYTES + BEEHIVE_HDR_BYTES
+                                        : VALIDATE_REPLY_HDR_BYTES + BEEHIVE_HDR_BYTES;
     end
 
     always_comb begin

@@ -49,7 +49,8 @@ import beehive_vr_pkg::*;
         READY = 4'd0,
         STORE_IN_ENTRY_HDR = 4'd1,
         WR_LOG_ENTRY_HDR = 4'd2,
-        RD_LOG_HDR_MEM = 4'd3, 
+        CALC_RD_LOG_HDR_MEM = 4'd3, 
+        RD_LOG_HDR_MEM = 4'd9,
         STORE_LOG_HDR_RD = 4'd4,
         WR_LOG_ENTRY_DATA = 4'd5,
         DRAIN_DATA = 4'd6,
@@ -97,7 +98,9 @@ import beehive_vr_pkg::*;
 
     logic   [INT_W-1:0]         log_last_op;
 
-    logic                       op_in_range;
+    logic                       op_in_range_reg;
+    logic                       op_in_range_next;
+    logic                       store_op_in_range;
 
     logic   reset_entry_bytes_in;
     logic   incr_entry_bytes_in;
@@ -119,6 +122,7 @@ import beehive_vr_pkg::*;
             tail_data_ptr_reg <= tail_data_ptr_next;
             log_entries_reg <= log_entries_next;
             log_start_op_reg <= log_start_op_next;
+            op_in_range_reg <= op_in_range_next;
         end
     end
 
@@ -202,8 +206,10 @@ import beehive_vr_pkg::*;
                                 ? src_install_req[NOC_DATA_W-1 -: WIRE_LOG_ENTRY_HDR_W]
                                 : wire_entry_hdr_reg;
 
-    assign op_in_range = (wire_entry_hdr_reg.op_num >= log_start_op_reg) &&
-                         (wire_entry_hdr_reg.op_num <= log_last_op);
+    assign op_in_range_next = store_op_in_range
+                            ? (wire_entry_hdr_reg.op_num >= log_start_op_reg) &&
+                              (wire_entry_hdr_reg.op_num <= log_last_op)
+                            : op_in_range_reg;
 
     always_comb begin
         init_inputs = 1'b0;
@@ -211,6 +217,7 @@ import beehive_vr_pkg::*;
         incr_entry_bytes_in = 1'b0;
         store_wire_entry_hdr = 1'b0;
         store_mem_entry_hdr = 1'b0;
+        store_op_in_range = 1'b0;
 
         incr_tail_ptr = 1'b0;
         incr_tail_data_ptr = 1'b0;
@@ -246,13 +253,17 @@ import beehive_vr_pkg::*;
                         state_next = WR_LOG_ENTRY_HDR;
                     end
                     else begin
-                        state_next = RD_LOG_HDR_MEM;
+                        state_next = CALC_RD_LOG_HDR_MEM;
                     end
                 end
             end
+            CALC_RD_LOG_HDR_MEM: begin
+                store_op_in_range = 1'b1;
+                state_next = RD_LOG_HDR_MEM;
+            end
             RD_LOG_HDR_MEM: begin
-                if (op_in_range) begin
-                    install_log_hdr_mem_rd_req_val = op_in_range;
+                if (op_in_range_reg) begin
+                    install_log_hdr_mem_rd_req_val = 1'b1;
                     if (log_hdr_mem_install_rd_req_rdy) begin
                         state_next = STORE_LOG_HDR_RD;
                     end
@@ -262,7 +273,7 @@ import beehive_vr_pkg::*;
                 end
             end
             STORE_LOG_HDR_RD: begin
-                if (op_in_range) begin
+                if (op_in_range_reg) begin
                     store_mem_entry_hdr = 1'b1;
                     install_log_hdr_mem_rd_resp_rdy = 1'b1;
                     if (log_hdr_mem_install_rd_resp_val) begin
@@ -274,7 +285,7 @@ import beehive_vr_pkg::*;
                 end
             end
             CALC_DIVERGENCE: begin
-                if (~op_in_range) begin
+                if (~op_in_range_reg) begin
                     if (log_start_op_reg > wire_entry_hdr_reg.op_num) begin
                         state_next = DRAIN_DATA;
                     end

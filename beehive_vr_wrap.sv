@@ -49,6 +49,7 @@ import beehive_vr_pkg::*;
     logic                           prep_manage_msg_rdy;
 
     logic                           manage_prep_req_val;
+    msg_type                        manage_prep_msg_type;
     logic   [NOC_DATA_W-1:0]        manage_prep_req;
     logic                           manage_prep_req_last;
     logic   [NOC_PADBYTES_W-1:0]    manage_prep_req_padbytes;
@@ -380,6 +381,7 @@ import beehive_vr_pkg::*;
         ,.prep_manage_msg_rdy           (prep_manage_msg_rdy                )
                                                                             
         ,.manage_prep_req_val           (manage_prep_req_val                )
+        ,.manage_prep_msg_type          (manage_prep_msg_type               )
         ,.manage_prep_req               (manage_prep_req                    )
         ,.manage_prep_req_last          (manage_prep_req_last               )
         ,.manage_prep_req_padbytes      (manage_prep_req_padbytes           )
@@ -420,6 +422,7 @@ import beehive_vr_pkg::*;
         ,.prep_manage_msg_rdy           (prep_manage_msg_rdy            )
 
         ,.manage_prep_req_val           (manage_prep_req_val            )
+        ,.manage_prep_msg_type          (manage_prep_msg_type           )
         ,.manage_prep_req               (manage_prep_req                )
         ,.manage_prep_req_last          (manage_prep_req_last           )
         ,.manage_prep_req_padbytes      (manage_prep_req_padbytes       )

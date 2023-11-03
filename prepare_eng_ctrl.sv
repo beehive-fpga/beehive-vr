@@ -13,6 +13,8 @@ module prepare_eng_ctrl (
     ,output logic                           prep_vr_state_wr_req
 
     ,output logic                           ctrl_datap_store_info 
+    ,output logic                           ctrl_datap_store_resp
+    ,input  logic                           datap_ctrl_msg_is_validate
     ,input  logic                           datap_ctrl_prep_ok
     ,input  logic                           datap_ctrl_log_has_space
 
@@ -37,8 +39,9 @@ module prepare_eng_ctrl (
         READY = 3'd0,
         // read state and update in the same cycle
         HANDLE_OP = 3'd1,
-        SEND_PREP_OK_META = 3'd2,
+        SEND_UDP_META = 3'd2,
         SEND_PREP_OK_DATA = 3'd3,
+        SEND_VALIDATE_DATA = 3'd5,
         WAIT_LOG_WRITE = 3'd4,
         UND = 'X
     } state_e;
@@ -66,6 +69,7 @@ module prepare_eng_ctrl (
         prep_vr_state_wr_req = 1'b0;
 
         ctrl_datap_store_info = 1'b0;
+        ctrl_datap_store_resp = 1'b0;
         start_req_ingest = 1'b0;
         start_log_clean = 1'b0;
 
@@ -81,12 +85,23 @@ module prepare_eng_ctrl (
                 end
             end
             HANDLE_OP: begin
-                state_next = SEND_PREP_OK_META;
+                ctrl_datap_store_resp = 1'b1;
+                if (~datap_ctrl_log_has_space) begin
+                    state_next = WAIT_LOG_WRITE;
+                end
+                else begin
+                    state_next = SEND_UDP_META;
+                end
             end
-            SEND_PREP_OK_META: begin
+            SEND_UDP_META: begin
                 prep_to_udp_meta_val = 1'b1;
                 if (to_udp_prep_meta_rdy) begin
-                    state_next = SEND_PREP_OK_DATA;
+                    if (datap_ctrl_msg_is_validate) begin
+                        state_next = SEND_VALIDATE_DATA;
+                    end
+                    else begin
+                        state_next = SEND_PREP_OK_DATA;
+                    end
                 end
             end
             SEND_PREP_OK_DATA: begin
@@ -100,6 +115,13 @@ module prepare_eng_ctrl (
                     else begin
                         state_next = WAIT_LOG_WRITE;
                     end
+                end
+            end
+            SEND_VALIDATE_DATA: begin
+                prep_to_udp_data_val = 1'b1;
+                prep_to_udp_data_last = 1'b1;
+                if (to_udp_prep_data_rdy) begin
+                    state_next = READY;
                 end
             end
             WAIT_LOG_WRITE: begin

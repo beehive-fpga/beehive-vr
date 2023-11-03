@@ -4,6 +4,7 @@ package beehive_vr_pkg;
 
     localparam INT_W = 64;
     localparam COUNT_W = 64;
+    localparam BOOL_W = 8;
 
     localparam [31:0]   NONFRAG_MAGIC = 31'h18_03_05_20;
 
@@ -35,6 +36,8 @@ package beehive_vr_pkg;
         StartViewChange = 8'd10,
         DoViewChange = 8'd11,
         StartView = 8'd12,
+        ValidateReadRequest = 8'd13,
+        ValidateReadReply = 8'd14,
         SetupBeehive = 8'd128,
         SetupBeehiveResp = 8'd129
     } msg_type;
@@ -101,18 +104,21 @@ package beehive_vr_pkg;
     localparam START_VIEW_HDR_BYTES = START_VIEW_HDR_W/8;
 
     typedef struct packed {
-        logic   [INT_W-1:0]         curr_view;
-        logic   [INT_W-1:0]         last_op;
-        logic   [INT_W-1:0]         my_replica_index;
-        logic   [INT_W-1:0]         first_log_op;
-        logic   [LOG_HDR_DEPTH_W:0] hdr_log_head;
-        logic   [LOG_HDR_DEPTH_W:0] hdr_log_tail;
-        logic   [LOG_DEPTH_W:0]     data_log_head;
-        logic   [LOG_DEPTH_W:0]     data_log_tail;
-        logic   [INT_W-1:0]         last_commit;
-        rep_status                  curr_status;
-    } vr_state;
-    localparam VR_STATE_W = $bits(vr_state);
+        logic   [INT_W-1:0] view;
+        logic   [INT_W-1:0] clientid;
+        logic   [INT_W-1:0] clientreqid;
+    } validate_req_hdr;
+    localparam VALIDATE_REQ_HDR_W = $bits(validate_req_hdr);
+    localparam VALIDATE_REQ_HDR_BYTES = VALIDATE_REQ_HDR_W/8;
+
+    typedef struct packed {
+        logic   [BOOL_W-1:0]    isValid;
+        logic   [INT_W-1:0]     clientid;
+        logic   [INT_W-1:0]     clientreqid;
+        logic   [INT_W-1:0]     rep_index;
+    } validate_reply_hdr;
+    localparam VALIDATE_REPLY_HDR_W = $bits(validate_reply_hdr);
+    localparam VALIDATE_REPLY_HDR_BYTES = VALIDATE_REPLY_HDR_W/8;
 
     typedef struct packed {
         logic   [INT_W-1:0]         view;
@@ -142,6 +148,20 @@ package beehive_vr_pkg;
     } log_reader_wire_hdr;
     localparam LOG_READER_WIRE_HDR_W = $bits(log_reader_wire_hdr);
     localparam LOG_READER_WIRE_HDR_BYTES = LOG_READER_WIRE_HDR_W/8;
+
+    typedef struct packed {
+        logic   [INT_W-1:0]         curr_view;
+        logic   [INT_W-1:0]         last_op;
+        logic   [INT_W-1:0]         my_replica_index;
+        logic   [INT_W-1:0]         first_log_op;
+        logic   [LOG_HDR_DEPTH_W:0] hdr_log_head;
+        logic   [LOG_HDR_DEPTH_W:0] hdr_log_tail;
+        logic   [LOG_DEPTH_W:0]     data_log_head;
+        logic   [LOG_DEPTH_W:0]     data_log_tail;
+        logic   [INT_W-1:0]         last_commit;
+        rep_status                  curr_status;
+    } vr_state;
+    localparam VR_STATE_W = $bits(vr_state);
     
     typedef struct packed {
         logic   [INT_W-1:0] total_size;

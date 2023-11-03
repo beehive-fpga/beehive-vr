@@ -34,6 +34,7 @@ import beehive_vr_pkg::*;
     ,input  logic                           prep_manage_msg_rdy
 
     ,output logic                           manage_prep_req_val
+    ,output msg_type                        manage_prep_msg_type
     ,output logic   [NOC_DATA_W-1:0]        manage_prep_req
     ,output logic                           manage_prep_req_last
     ,output logic   [NOC_PADBYTES_W-1:0]    manage_prep_req_padbytes
@@ -146,6 +147,7 @@ import beehive_vr_pkg::*;
     end
 
     assign manage_vc_msg_type = msg_hdr_next.msg_type;
+    assign manage_prep_msg_type = msg_hdr_next.msg_type;
     
     assign manage_setup_pkt_info = manage_dst_pkt_info;
     assign manage_setup_req = manage_dst_req;
@@ -190,7 +192,7 @@ import beehive_vr_pkg::*;
         ,.realign_dst_removed_data  (msg_hdr                    )
     );
 
-    assign dst_sel = msg_hdr_next.msg_type == Prepare
+    assign dst_sel = (msg_hdr_next.msg_type == Prepare) || (msg_hdr_next.msg_type == ValidateReadRequest)
                     ? PREPARE
                     : msg_hdr_next.msg_type == Commit
                         ? COMMIT
