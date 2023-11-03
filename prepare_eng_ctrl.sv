@@ -81,15 +81,7 @@ module prepare_eng_ctrl (
                 end
             end
             HANDLE_OP: begin
-                if (datap_ctrl_prep_ok) begin
-                    state_next = SEND_PREP_OK_META;
-                end
-                else if (~datap_ctrl_log_has_space) begin
-                    state_next = WAIT_LOG_WRITE;
-                end
-                else begin
-                    state_next = SEND_PREP_OK_META;
-                end
+                state_next = SEND_PREP_OK_META;
             end
             SEND_PREP_OK_META: begin
                 prep_to_udp_meta_val = 1'b1;
@@ -102,7 +94,7 @@ module prepare_eng_ctrl (
                 prep_to_udp_data_last = 1'b1;
                 if (to_udp_prep_data_rdy) begin
                     if (log_write_done & log_clean_done) begin
-                        prep_vr_state_wr_req = 1'b1;
+                        prep_vr_state_wr_req = datap_ctrl_prep_ok & datap_ctrl_log_has_space;
                         state_next = READY;
                     end
                     else begin
@@ -112,7 +104,7 @@ module prepare_eng_ctrl (
             end
             WAIT_LOG_WRITE: begin
                 if (log_write_done & log_clean_done) begin
-                    prep_vr_state_wr_req = 1'b1;
+                    prep_vr_state_wr_req = datap_ctrl_prep_ok & datap_ctrl_log_has_space;
                     state_next = READY;
                 end
             end

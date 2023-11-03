@@ -68,6 +68,9 @@ module prepare_eng_log_ctrl (
                         hdr_state_next = WAITING;
                     end
                 end
+                else begin
+                    hdr_state_next = WAITING;
+                end
             end
             default: begin
                 prep_log_hdr_mem_wr_val = 'X;
