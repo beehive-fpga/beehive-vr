@@ -15,7 +15,7 @@ package beehive_vr_pkg;
     localparam LOG_W_BYTES_W = $clog2(LOG_W_BYTES);
     localparam LOG_DEPTH = 2048;
     localparam LOG_DEPTH_W = $clog2(LOG_DEPTH);
-    localparam LOG_HDR_DEPTH = 4096;
+    localparam LOG_HDR_DEPTH = 2048;
     localparam LOG_HDR_DEPTH_W = $clog2(LOG_HDR_DEPTH);
 
     localparam LOG_STATE_COMMITED = 0;
@@ -35,7 +35,8 @@ package beehive_vr_pkg;
         StartViewChange = 8'd10,
         DoViewChange = 8'd11,
         StartView = 8'd12,
-        SetupBeehive = 8'd128
+        SetupBeehive = 8'd128,
+        SetupBeehiveResp = 8'd129
     } msg_type;
 
     typedef struct packed {

@@ -59,7 +59,8 @@ import beehive_vr_pkg::*;
     beehive_hdr     beehive_hdr_cast;
 
     logic   [INT_W-1:0] entry_len_calc;
-    logic   [LOG_DEPTH_W:0]   log_entry_line_cnt;
+    logic   [LOG_DEPTH_W:0]   log_entry_line_cnt_reg;
+    logic   [LOG_DEPTH_W:0]   log_entry_line_cnt_next;
 
     logic   [LOG_DEPTH_W:0] space_used;
     logic   [LOG_DEPTH_W:0] space_left;
@@ -80,6 +81,7 @@ import beehive_vr_pkg::*;
         prepare_hdr_reg <= prepare_hdr_next;
         wr_addr_reg <= wr_addr_next;
         entry_hdr_reg <= entry_hdr_next;
+        log_entry_line_cnt_reg <= log_entry_line_cnt_next;
     end
 
     assign log_entry_offset = prepare_hdr_reg.clean_up_to - vr_state_prep_rd_resp_data.first_log_op;
@@ -124,16 +126,17 @@ import beehive_vr_pkg::*;
 
     assign space_used = vr_state_prep_rd_resp_data.data_log_tail - vr_state_prep_rd_resp_data.data_log_head;
     assign space_left = {1'b1, {(LOG_DEPTH_W){1'b0}}} - space_used;
-
-    assign log_entry_line_cnt = entry_len_calc[LOG_W_BYTES_W-1:0] == 0
-                            ? entry_len_calc >> LOG_W_BYTES_W
-                            : (entry_len_calc >> LOG_W_BYTES_W) + 1'b1;
+    assign log_entry_line_cnt_next = ctrl_datap_store_info
+                                ? entry_len_calc[LOG_W_BYTES_W-1:0] == 0
+                                    ? entry_len_calc >> LOG_W_BYTES_W
+                                    : (entry_len_calc >> LOG_W_BYTES_W) + 1'b1
+                                : log_entry_line_cnt_reg;
 
     assign hdr_log_full = (vr_state_prep_rd_resp_data.hdr_log_tail[LOG_HDR_DEPTH_W] 
                           != vr_state_prep_rd_resp_data.hdr_log_head[LOG_HDR_DEPTH_W])
                           && (vr_state_prep_rd_resp_data.hdr_log_tail[LOG_HDR_DEPTH_W-1:0] 
                               == vr_state_prep_rd_resp_data.hdr_log_head[LOG_HDR_DEPTH_W-1:0]);
-    assign datap_ctrl_log_has_space = (space_left >= log_entry_line_cnt) && (~hdr_log_full);
+    assign datap_ctrl_log_has_space = (space_left >= log_entry_line_cnt_reg) && (~hdr_log_full);
 
     logic   [PREP_OK_PADDING-1:0] padding;
     assign padding = {(PREP_OK_PADDING){1'b0}};
@@ -169,7 +172,7 @@ import beehive_vr_pkg::*;
         prep_vr_state_wr_data = vr_state_prep_rd_resp_data;
         prep_vr_state_wr_data.last_op = vr_state_prep_rd_resp_data.last_op + 1'b1;
         prep_vr_state_wr_data.hdr_log_tail = vr_state_prep_rd_resp_data.hdr_log_tail + 1'b1;
-        prep_vr_state_wr_data.data_log_tail = vr_state_prep_rd_resp_data.data_log_tail + log_entry_line_cnt;
+        prep_vr_state_wr_data.data_log_tail = vr_state_prep_rd_resp_data.data_log_tail + log_entry_line_cnt_reg;
         if (clean_log) begin
             prep_vr_state_wr_data.first_log_op = prepare_hdr_reg.clean_up_to + 1'b1;
             prep_vr_state_wr_data.hdr_log_head = vr_state_prep_rd_resp_data.hdr_log_head + log_entry_offset + 1'b1;

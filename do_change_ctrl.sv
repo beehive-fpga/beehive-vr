@@ -71,6 +71,8 @@ module do_change_ctrl (
 
         do_change_to_udp_meta_val = 1'b0;
         do_change_to_udp_data_val = 1'b0;
+        
+        store_do_change_size = 1'b0;
 
         dst_insert_data_rdy = 1'b0;
         

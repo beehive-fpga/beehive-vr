@@ -82,13 +82,7 @@ module commit_eng_ctrl (
                 if (manage_commit_msg_val & manage_commit_req_val) begin
                     commit_manage_msg_rdy = 1'b1;
                     commit_manage_req_rdy = 1'b1;
-                    commit_log_hdr_mem_rd_req_val = 1'b1;
-                    if (~log_hdr_mem_commit_rd_req_rdy) begin
-                        state_next = RD_LOG_ENTRY_HDR;
-                    end
-                    else begin
-                        state_next = LOG_ENTRY_RESP;
-                    end
+                    state_next = RD_LOG_ENTRY_HDR;
                 end
             end
             RD_LOG_ENTRY_HDR: begin

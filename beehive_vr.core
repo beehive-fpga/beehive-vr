@@ -22,7 +22,6 @@ filesets:
             - prepare_eng_ctrl.sv
             - prepare_eng_datap.sv
             - prepare_eng_log_ctrl_new.sv
-            - req_splitter.sv
             - setup_eng.sv
             - start_change_broadcast.sv
             - view_change_eng.sv

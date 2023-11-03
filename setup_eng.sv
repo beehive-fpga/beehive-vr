@@ -198,9 +198,14 @@ import packet_struct_pkg::*;
         setup_to_udp_meta_info.dst_ip = info_reg.src_ip;
         setup_to_udp_meta_info.src_port = info_reg.dst_port;
         setup_to_udp_meta_info.dst_port = info_reg.src_port;
-        setup_to_udp_meta_info.data_length = 1;
+        setup_to_udp_meta_info.data_length = BEEHIVE_HDR_BYTES;
     end
 
-    assign setup_to_udp_data = {8'd1, {(NOC_DATA_W-8){1'b0}}};
-    assign setup_to_udp_data_padbytes = NOC_DATA_BYTES - 1;
+    beehive_hdr resp_hdr_cast;
+    assign resp_hdr_cast.frag_num = NONFRAG_MAGIC;
+    assign resp_hdr_cast.msg_type = SetupBeehiveResp;
+    assign resp_hdr_cast.msg_len = 0;
+
+    assign setup_to_udp_data = {resp_hdr_cast, {(NOC_DATA_W-BEEHIVE_HDR_W){1'b0}}};
+    assign setup_to_udp_data_padbytes = NOC_DATA_BYTES - BEEHIVE_HDR_BYTES;
 endmodule

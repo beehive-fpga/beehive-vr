@@ -67,7 +67,7 @@ import beehive_udp_msg::*;
                             ? log_hdr_mem_commit_rd_resp_data
                             : log_entry_hdr_reg;
 
-    assign commit_log_hdr_mem_rd_req_addr = curr_log_addr_next;
+    assign commit_log_hdr_mem_rd_req_addr = curr_log_addr_reg;
 
     always_comb begin
         vr_state_new = vr_state_reg;
