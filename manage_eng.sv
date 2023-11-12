@@ -66,12 +66,12 @@ import beehive_vr_pkg::*;
     localparam FIFO_ELS = 4;
     localparam FIFO_ELS_W = $clog2(FIFO_ELS);
 
-    typedef enum logic[1:0] {
-        PREPARE = 2'd0,
-        COMMIT = 2'd1,
-        VIEW_CHANGE = 2'd2,
-        SETUP = 2'd3,
-        NONE = 'X
+    typedef enum logic[2:0] {
+        PREPARE = 3'd0,
+        COMMIT = 3'd1,
+        VIEW_CHANGE = 3'd2,
+        SETUP = 3'd3,
+        NONE = 3'd4
     } dst_sel_e;
 
     typedef enum logic[1:0] {
@@ -202,38 +202,41 @@ import beehive_vr_pkg::*;
                                 ? SETUP
                                 : NONE;
 
+    logic   dump_msg_val;
+    logic   dump_req_val;
+
     demux #(
-         .NUM_OUTPUTS   (4  )
+         .NUM_OUTPUTS   (5  )
         ,.INPUT_WIDTH   (1  )
     ) meta_val_demux (
          .input_sel     (dst_sel            )
         ,.data_input    (manage_dst_msg_val )
-        ,.data_outputs  ({manage_setup_msg_val, manage_vc_msg_val, manage_commit_msg_val, manage_prep_msg_val})
+        ,.data_outputs  ({dump_msg_val, manage_setup_msg_val, manage_vc_msg_val, manage_commit_msg_val, manage_prep_msg_val})
     );
     
     demux #(
-         .NUM_OUTPUTS   (4  )
+         .NUM_OUTPUTS   (5  )
         ,.INPUT_WIDTH   (1  )
     ) data_val_demux (
          .input_sel     (dst_sel            )
         ,.data_input    (manage_dst_req_val )
-        ,.data_outputs  ({manage_setup_req_val, manage_vc_req_val, manage_commit_req_val, manage_prep_req_val})
+        ,.data_outputs  ({dump_req_val, manage_setup_req_val, manage_vc_req_val, manage_commit_req_val, manage_prep_req_val})
     );
 
     bsg_mux #(
          .width_p   (1)
-        ,.els_p     (4)
+        ,.els_p     (5)
     ) meta_rdy_mux (
-         .data_i    ({setup_manage_msg_rdy, vc_manage_msg_rdy, commit_manage_msg_rdy, prep_manage_msg_rdy})
+         .data_i    ({1'b1, setup_manage_msg_rdy, vc_manage_msg_rdy, commit_manage_msg_rdy, prep_manage_msg_rdy})
         ,.sel_i     (dst_sel)
         ,.data_o    (dst_manage_msg_rdy)
     );
     
     bsg_mux #(
          .width_p   (1)
-        ,.els_p     (4)
+        ,.els_p     (5)
     ) data_rdy_mux (
-         .data_i    ({setup_manage_req_rdy, vc_manage_req_rdy, commit_manage_req_rdy, prep_manage_req_rdy})
+         .data_i    ({1'b1, setup_manage_req_rdy, vc_manage_req_rdy, commit_manage_req_rdy, prep_manage_req_rdy})
         ,.sel_i     (dst_sel)
         ,.data_o    (dst_manage_req_rdy)
     );
