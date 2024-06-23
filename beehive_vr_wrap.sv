@@ -49,7 +49,7 @@ import beehive_vr_pkg::*;
     logic                           prep_manage_msg_rdy;
 
     logic                           manage_prep_req_val;
-    msg_type                        manage_prep_msg_type;
+    msg_type_e                      manage_prep_msg_type;
     logic   [NOC_DATA_W-1:0]        manage_prep_req;
     logic                           manage_prep_req_last;
     logic   [NOC_PADBYTES_W-1:0]    manage_prep_req_padbytes;
@@ -70,7 +70,7 @@ import beehive_vr_pkg::*;
     logic                           vc_manage_msg_rdy;
 
     logic                           manage_vc_req_val;
-    msg_type                        manage_vc_msg_type;
+    msg_type_e                      manage_vc_msg_type;
     logic   [NOC_DATA_W-1:0]        manage_vc_req;
     logic                           manage_vc_req_last;
     logic   [NOC_PADBYTES_W-1:0]    manage_vc_req_padbytes;

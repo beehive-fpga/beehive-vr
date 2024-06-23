@@ -16,7 +16,7 @@ import beehive_vr_pkg::*;
 
     // data bus in
     ,input  logic   [NOC_DATA_W-1:0]        manage_prep_req
-    ,input  msg_type                        manage_prep_msg_type
+    ,input  msg_type_e                      manage_prep_msg_type
 
     // state read
     ,input  vr_state                        vr_state_prep_rd_resp_data
@@ -56,8 +56,8 @@ import beehive_vr_pkg::*;
     udp_info    udp_info_reg;
     udp_info    udp_info_next;
 
-    msg_type    msg_type_reg;
-    msg_type    msg_type_next;
+    msg_type_e  msg_type_reg;
+    msg_type_e  msg_type_next;
 
     validate_req_hdr validate_req_hdr_reg;
     validate_req_hdr validate_req_hdr_next;

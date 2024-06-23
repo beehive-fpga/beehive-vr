@@ -40,11 +40,11 @@ package beehive_vr_pkg;
         ValidateReadReply = 8'd14,
         SetupBeehive = 8'd128,
         SetupBeehiveResp = 8'd129
-    } msg_type;
+    } msg_type_e;
 
     typedef struct packed {
         logic   [FRAG_MAGIC_W-1:0]  frag_num;
-        msg_type                    msg_type;
+        msg_type_e                  msg_type;
         logic   [MSG_LEN_W-1:0]     msg_len;
     } beehive_hdr;
     localparam BEEHIVE_HDR_W = $bits(beehive_hdr);

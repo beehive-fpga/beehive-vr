@@ -22,7 +22,7 @@ import beehive_udp_msg::*;
 
     // data bus in
     ,input  logic                           manage_vc_req_val
-    ,input  msg_type                        manage_vc_msg_type
+    ,input  msg_type_e                      manage_vc_msg_type
     ,input  logic   [NOC_DATA_W-1:0]        manage_vc_req
     ,input  logic                           manage_vc_req_last
     ,input  logic   [NOC_PADBYTES_W-1:0]    manage_vc_req_padbytes
@@ -192,13 +192,13 @@ import beehive_udp_msg::*;
     logic                           install_ctrl_val;
     logic                           ctrl_install_rdy;
 
-    msg_type                        msg_type_reg;
-    msg_type                        msg_type_next;
+    msg_type_e                      msg_type_reg;
+    msg_type_e                      msg_type_next;
     
     logic                           datap_ctrl_new_view;
     logic                           datap_ctrl_curr_view_change;
     logic                           datap_ctrl_quorum_good;
-    msg_type                        datap_ctrl_msg_type;
+    msg_type_e                      datap_ctrl_msg_type;
     
     logic                           realign_install_data_val;
     logic   [NOC_DATA_W-1:0]        realign_install_data;

@@ -16,7 +16,7 @@ import beehive_udp_msg::*;
 
     // data bus in
     ,input  logic                           manage_prep_req_val
-    ,input  msg_type                        manage_prep_msg_type
+    ,input  msg_type_e                      manage_prep_msg_type
     ,input  logic   [NOC_DATA_W-1:0]        manage_prep_req
     ,input  logic                           manage_prep_req_last
     ,input  logic   [NOC_PADBYTES_W-1:0]    manage_prep_req_padbytes

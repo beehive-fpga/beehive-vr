@@ -42,7 +42,7 @@ import beehive_vr_pkg::*;
     ,input  logic                           datap_ctrl_new_view
     ,input  logic                           datap_ctrl_curr_view_change
     ,input  logic                           datap_ctrl_quorum_good
-    ,input  msg_type                        datap_ctrl_msg_type   
+    ,input  msg_type_e                      datap_ctrl_msg_type   
 );
 
     typedef enum logic [3:0] {
